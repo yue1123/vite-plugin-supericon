@@ -21,7 +21,6 @@
     "demo:preview": "pnpm run -C demo preview"
   },
   "files": [
-    "screenshots",
     "dist"
   ],
   "keywords": [
