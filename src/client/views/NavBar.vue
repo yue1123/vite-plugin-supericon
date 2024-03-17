@@ -24,7 +24,7 @@
         <NDivider vertical />
         <Appearance />
         <NDivider vertical />
-        <Button title="GitHub" ghost size="large">
+        <Button title="GitHub" ghost size="large" @click="gotoGithub">
           <Icon icon="bi:github"></Icon>
         </Button>
         <ThemeToggleBtn />
@@ -44,6 +44,10 @@
   import Button from '../components/Button.vue'
   import ThemeToggleBtn from '../components/ThemeToggleBtn.vue'
   import Appearance from './Appearance/index.vue'
+
+  function gotoGithub() {
+    window.open('https://github.com/yue1123/vite-plugin-supericon')
+  }
 </script>
 
 <style lang="scss">
