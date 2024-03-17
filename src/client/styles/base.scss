@@ -1,0 +1,7 @@
+html {
+  color: var(--base-text-color);
+  background: var(--bg);
+}
+html.dark {
+  color-scheme: dark;
+}

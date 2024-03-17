@@ -1,0 +1,15 @@
+{
+  "cSpell.words": [
+    "fantasticon",
+    "iconfont",
+    "iconify",
+    "sirv",
+    "supericon",
+    "vueuse"
+  ],
+  
+  "iconify.customCollectionJsonPaths": [
+    "node_modules/.supericon/iconify.json"
+  ],
+  "svg.preview.background": "custom"
+}
