@@ -19,7 +19,7 @@
       <div class="buttons">
         <Button title="Sort Mode" ghost size="large" @click="toggleSort">
           <Icon v-if="sortMode === 'default'" icon="bi:sort-alpha-down"></Icon>
-          <Icon v-else icon="bi:calendar2"></Icon>
+          <Icon v-else icon="gg:calendar-dates"></Icon>
         </Button>
         <NDivider vertical />
         <Appearance />
