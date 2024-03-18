@@ -7,6 +7,7 @@
 ![GitHub](https://img.shields.io/github/license/yue1123/vite-plugin-supericon?style=flat-square)
 
 [中文](./README.zh.md)
+
 Converts svg solid colour icons in a project to font icons and provides an interactive interface. The core is implemented by [fantasticon](https://github.com/tancredi/fantasticon#readme).
 
 ## ✨ Features
