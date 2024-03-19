@@ -34,6 +34,11 @@
     "super icon"
   ],
   "author": "dh<2572468699@qq.com>",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:yue1123/vite-plugin-supericon.git"
+  },
+  "homepage": "https://github.com/yue1123/vite-plugin-supericon",
   "license": "MIT",
   "devDependencies": {
     "@iconify/vue": "^4.1.1",
