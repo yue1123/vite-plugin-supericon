@@ -205,10 +205,9 @@
         display: block;
         font-size: 0;
         float: left;
-      }
-
-      .iconfont-container i:before {
-        font-size: var(--size);
+        &::before {
+          font-size: var(--size);
+        }
       }
 
       &:hover {
