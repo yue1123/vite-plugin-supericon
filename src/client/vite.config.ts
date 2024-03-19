@@ -17,7 +17,7 @@ export default defineConfig(() => {
       vue(),
       Inspect(),
       superIcon({
-        srcDir: './icons'
+        srcDir: './demo/src/assets/icons'
       })
     ],
     server: {},
