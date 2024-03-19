@@ -89,7 +89,7 @@ import 'virtual:supericon'
 | round       | number   | 是       | `icon`             | 设置 SVG 路径四舍五入 [10e12]                                                        |
 | selector    | string   | 是       | `null`             | 使用 CSS 选择器而不是 "标签 + 前缀"。                                                |
 | tag         | string   | 是       | `null`             | 图标的标签载体                                                                       |
-| cssTemplate | string   | 是       | `i`                | 使用自定义的[Handlebars](https://handlebarsjs.com/)模版生成 css 文件(模版文件的路径) |
+| cssTemplate | string   | 是       | `i`                | 使用自定义的 [Handlebars](https://handlebarsjs.com/) 模版生成 css 文件(模版文件的路径) |
 | normalize   | boolean  | 是       | `true`             | 将图标缩放至最高图标的高度，保持所有图标宽高一致                                     |
 
 ## License

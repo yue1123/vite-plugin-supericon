@@ -89,7 +89,7 @@ Configure vscode settings for the workspace.
 | round       | number  | yes     | `icon`                    | setup the SVG path rounding [10e12]                                                                       |
 | selector    | string  | yes     | `null`                    | use a CSS selector instead of 'tag + prefix'                                                              |
 | tag         | string  | yes      | `null`                  | CSS base tag for icons                                                                                    |
-| cssTemplate | string  | yes      | `i`                     | Use a custom[Handlebars](https://handlebarsjs.com/)template file to generate css file(template file path) |
+| cssTemplate | string  | yes      | `i`                     | Use a custom [Handlebars](https://handlebarsjs.com/) template file to generate css file(template file path) |
 | normalize   | boolean | yes      | `true`                  | normalize icons by scaling them to the height of the highest icon                                         |
 
 ## License
