@@ -125,8 +125,8 @@ export function superIcon(options: Options): Plugin {
       if (clearCache) {
         emptyDirSync(distDir)
       }
-      fontsGenerator = createFontsGenerator(root, clearCache, {
-        inputDir: srcDir,
+      fontsGenerator = createFontsGenerator(root, {
+        srcDir: srcDir,
         outputDir: distDir,
         name,
         ...fontOptions

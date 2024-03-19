@@ -74,20 +74,23 @@ import 'virtual:supericon'
 
 ## Options
 
-| 属性名     | 属性类型 | 是否可选 | 默认值             | 属性描述                                                       |
-| ---------- | -------- | -------- | ------------------ | -------------------------------------------------------------- |
-| clearCache | boolean  | 是       | true               | 在服务器启动前清除缓存                                         |
-| watch      | boolean  | 是       | true               | 监视 srcDir 文件变化                                           |
-| base       | string   | 是       | 从 Vite 配置中读取 | 超级图标 UI 的基础 URL                                         |
-| open       | boolean  | 是       | false              | 自动在浏览器中打开超级图标页面                                 |
-| silent     | boolean  | 是       | false              | 在终端中静默打印 URL 输出                                      |
-| srcDir     | string   | 否       |                    | SVG 图标源文件夹                                               |
-| name       | string   | 是       | iconfont           | 图标字体的名称                                                 |
-| prefix     | string   | 是       | icon               | 图标 CSS 类前缀                                                |
-| fontHeight | number   | 是       | 300                | 输出字体的高度（图标将按比例缩放，使最高字体的高度等于此高度） |
-| descent    | number   | 是       |                    | 字体下降                                                       |
-| round      | number   | 是       | icon               | 设置 SVG 路径四舍五入 [10e12]                                  |
-| selector   | string   | 是       | null               | 使用 CSS 选择器而不是 "标签 + 前缀"。                          |
+| 属性名      | 属性类型 | 是否可选 | 默认值             | 属性描述                                                                             |
+| ----------- | -------- | -------- | ------------------ | ------------------------------------------------------------------------------------ |
+| srcDir      | string   | 否       |                    | SVG 图标源文件夹                                                                     |
+| clearCache  | boolean  | 是       | `true`             | 在服务器启动前清除缓存                                                               |
+| watch       | boolean  | 是       | `true`             | 监视 srcDir 文件变化                                                                 |
+| base        | string   | 是       | 从 Vite 配置中读取 | 超级图标 UI 的基础 URL                                                               |
+| open        | boolean  | 是       | `false`            | 自动在浏览器中打开超级图标页面                                                       |
+| silent      | boolean  | 是       | `false`            | 在终端中静默打印 URL 输出                                                            |
+| name        | string   | 是       | `iconfont`         | 图标字体的名称                                                                       |
+| prefix      | string   | 是       | `icon`             | 图标 CSS 类前缀                                                                      |
+| fontHeight  | number   | 是       | `300`              | 输出字体的高度（图标将按比例缩放，使最高字体的高度等于此高度）                       |
+| descent     | number   | 是       |                    | 字体下降                                                                             |
+| round       | number   | 是       | `icon`             | 设置 SVG 路径四舍五入 [10e12]                                                        |
+| selector    | string   | 是       | `null`             | 使用 CSS 选择器而不是 "标签 + 前缀"。                                                |
+| tag         | string   | 是       | `null`             | 图标的标签载体                                                                       |
+| cssTemplate | string   | 是       | `i`                | 使用自定义的[Handlebars](https://handlebarsjs.com/)模版生成 css 文件(模版文件的路径) |
+| normalize   | boolean  | 是       | `true`             | 将图标缩放至最高图标的高度，保持所有图标宽高一致                                     |
 
 ## License
 

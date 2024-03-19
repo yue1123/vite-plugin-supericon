@@ -1,7 +1,52 @@
-import { type RunnerOptions } from 'fantasticon'
-
-export interface GenerateFontOptions
-  extends Partial<Pick<RunnerOptions, 'fontHeight' | 'descent' | 'round' | 'selector'>> {}
+export interface GenerateFontOptions {
+  /**
+   * Svg icons source folder.
+   */
+  srcDir: string
+  /**
+   * Name of icons font
+   * @default 'iconfont
+   */
+  name?: string
+  /**
+   * Icon css class prefix
+   * @default icon
+   */
+  prefix?: string
+  /**
+   * The font descent
+   */
+  descent?: number
+  /**
+   * The output font height (icons will be scaled so the highest has this height)
+   * @default 300
+   */
+  fontHeight?: number
+  /**
+   * Setup the SVG path rounding [10e12]
+   */
+  round?: number
+  /**
+   * Use a CSS selector instead of 'tag + prefix'
+   */
+  selector?: string
+  /**
+   * CSS base tag for icons
+   * @default i
+   */
+  tag?: string
+  /**
+   * Use a custom Handlebars template file to generate css file
+   *
+   * The value is file path
+   */
+  cssTemplate?: string
+  /**
+   * normalize icons by scaling them to the height of the highest icon
+   * @default true
+   */
+  normalize?: boolean
+}
 
 export interface Options extends GenerateFontOptions {
   /**
@@ -32,18 +77,4 @@ export interface Options extends GenerateFontOptions {
    * @default false
    */
   silent?: boolean
-  /**
-   * Svg icons source folder.
-   */
-  srcDir: string
-  /**
-   * Name of icons font
-   * @default 'iconfont
-   */
-  name?: string
-  /**
-   * Icon css class prefix
-   * @default icon
-   */
-  prefix?: string
 }

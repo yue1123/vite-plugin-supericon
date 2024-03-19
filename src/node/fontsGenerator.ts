@@ -1,14 +1,29 @@
-import { FontAssetType, OtherAssetType, type RunnerOptions, generateFonts } from 'fantasticon'
+import { FontAssetType, OtherAssetType, generateFonts, RunnerOptions } from 'fantasticon'
 import { readFileSync, statSync, writeFileSync } from 'node:fs'
 import { relative, join } from 'node:path'
-import { emptyDirSync, ensureDirSync } from 'fs-extra'
+import { ensureDirSync } from 'fs-extra'
 
 import { IconData } from '../types'
 import { SVG_TAG_REG, XML_TAG_REG } from './constants'
 import { error } from './utils'
+import { Options } from './options'
 
-export function createFontsGenerator(root: string, clearCache: boolean, options: RunnerOptions) {
-  const { inputDir, outputDir, name, descent, fontHeight = 300, round, prefix = 'icon' } = options
+export function createFontsGenerator(
+  root: string,
+  options: Options & Pick<RunnerOptions, 'outputDir'>
+) {
+  const {
+    srcDir,
+    outputDir,
+    name,
+    descent,
+    fontHeight = 300,
+    round,
+    normalize = true,
+    prefix = 'icon',
+    tag = 'i',
+    cssTemplate
+  } = options
   let promise: Promise<IconData> | undefined
 
   /**
@@ -17,22 +32,22 @@ export function createFontsGenerator(root: string, clearCache: boolean, options:
    */
   const run = (force?: boolean) => {
     if (promise && !force) return promise
-    ensureDirSync(inputDir)
+    ensureDirSync(srcDir)
     ensureDirSync(outputDir)
-    promise = new Promise<IconData>((resolve, reject) => {
-      // Create output dir folder
+    promise = new Promise<IconData>((resolve) => {
       generateFonts({
-        inputDir,
+        inputDir: srcDir,
         outputDir,
         descent,
         fontHeight,
         round,
         name,
         prefix,
-        templates: {},
-        pathOptions: {},
-        codepoints: {},
-        normalize: true,
+        tag,
+        normalize,
+        templates: {
+          css: cssTemplate
+        },
         fontTypes: [FontAssetType.EOT, FontAssetType.WOFF2, FontAssetType.WOFF],
         assetTypes: [
           OtherAssetType.CSS

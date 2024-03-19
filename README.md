@@ -74,20 +74,23 @@ Configure vscode settings for the workspace.
 
 ## Options
 
-| Property   | Type    | Partial | Default                 | Description                                                                  |
-| ---------- | ------- | ------- | ----------------------- | ---------------------------------------------------------------------------- |
-| srcDir     | string  | no      |                         | Svg icons source folder.                                                     |
-| base       | string  | yes     | read from Vite's config | Base URL for superIcon UI                                                    |
-| clearCache | boolean | yes     | true                    | clear cache pre server start                                                 |
-| watch      | boolean | yes     | true                    | Watch srcDir files change                                                    |
-| open       | boolean | yes     | false                   | Automatically open super icon page in browser                                |
-| silent     | boolean | yes     | false                   | Print URL output silently in the terminal                                    |
-| name       | string  | yes     | iconfont                | Name of icons font                                                           |
-| prefix     | string  | yes     | icon                    | Icon css class prefix                                                        |
-| fontHeight | number  | yes     | 300                     | the output font height (icons will be scaled so the highest has this height) |
-| descent    | number  | yes     |                         | font descent                                                                 |
-| round      | number  | yes     | icon                    | setup the SVG path rounding [10e12]                                          |
-| selector   | string  | yes     | null                    | use a CSS selector instead of 'tag + prefix'                                 |
+| Property    | Type    | Partial | Default                 | Description                                                                                               |
+| ----------- | ------- | ------- | ----------------------- | --------------------------------------------------------------------------------------------------------- |
+| srcDir      | string  | no      |                         | Svg icons source folder.                                                                                  |
+| base        | string  | yes     | read from Vite's config | Base URL for superIcon UI                                                                                 |
+| clearCache  | boolean | yes     | `true`                    | clear cache pre server start                                                                              |
+| watch       | boolean | yes     | `true`                    | Watch srcDir files change                                                                                 |
+| open        | boolean | yes     | `false`                   | Automatically open super icon page in browser                                                             |
+| silent      | boolean | yes     | `false`                   | Print URL output silently in the terminal                                                                 |
+| name        | string  | yes     | `iconfont`                | Name of icons font                                                                                        |
+| prefix      | string  | yes     | `icon`                    | Icon css class prefix                                                                                     |
+| fontHeight  | number  | yes     | `300`                    | the output font height (icons will be scaled so the highest has this height)                              |
+| descent     | number  | yes     |                         | font descent                                                                                              |
+| round       | number  | yes     | `icon`                    | setup the SVG path rounding [10e12]                                                                       |
+| selector    | string  | yes     | `null`                    | use a CSS selector instead of 'tag + prefix'                                                              |
+| tag         | string  | yes      | `null`                  | CSS base tag for icons                                                                                    |
+| cssTemplate | string  | yes      | `i`                     | Use a custom[Handlebars](https://handlebarsjs.com/)template file to generate css file(template file path) |
+| normalize   | boolean | yes      | `true`                  | normalize icons by scaling them to the height of the highest icon                                         |
 
 ## License
 
