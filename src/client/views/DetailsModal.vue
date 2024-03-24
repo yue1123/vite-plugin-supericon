@@ -9,7 +9,11 @@
   >
     <template v-if="props.iconData">
       <div class="icon-detail">
-        <div class="icon-detail__canvas" :style="`--size: ${renderSize}`">
+        <div
+          class="icon-detail__canvas"
+          :class="{ invert: isInvert }"
+          :style="`--size: ${renderSize}`"
+        >
           <div class="svg-raw-container">
             <span>
               <img ref="svgRenderRef" :src="`/@fs/${props.iconData.absolutePath}`" alt="" />
@@ -20,32 +24,38 @@
               <i ref="iconFontRenderRef" :class="props.iconData.useId"></i>
             </span>
           </div>
-          <div class="size-select">
-            <span class="select-icon">
-              <Icon icon="bi:rulers"></Icon>
-            </span>
-            <select name="renderSize" v-model="renderSize">
-              <option v-for="item in sizeOptions" :value="item.value">{{ item.label }}</option>
-            </select>
+          <div class="actions-container">
+            <div class="size-select">
+              <span class="select-icon">
+                <Icon icon="bi:rulers"></Icon>
+              </span>
+              <select name="renderSize" v-model="renderSize">
+                <option v-for="item in sizeOptions" :value="item.value">{{ item.label }}</option>
+              </select>
+            </div>
+            <div class="color-select" @click="() => toggleInvert()">
+              <div class="white-btn" v-if="isInvert"></div>
+              <div class="black-btn" v-else></div>
+            </div>
           </div>
         </div>
         <div class="icon-detail__canvas-caption">
-          <div>SVG rendering ({{ svgRenderSize && svgRenderSize.join(' x ') }})</div>
+          <div>SVG raw rendering ({{ svgRenderSize && svgRenderSize.join(' x ') }})</div>
           <div>Iconfont rendering ({{ iconFontRenderSize && iconFontRenderSize.join(' x ') }})</div>
         </div>
         <div class="icon-detail__info">
           <div class="description-cell">
             <div class="title">Id</div>
             <div class="content">{{ props.iconData.useId }}</div>
+            <ClipboardButton ghost :text="props.iconData.absolutePath">
+              <Icon icon="gg:copy" />
+            </ClipboardButton>
           </div>
           <div class="description-cell">
             <div class="title">Absolute Path</div>
             <div class="content">{{ props.iconData.absolutePath }}</div>
             <ClipboardButton ghost :text="props.iconData.absolutePath">
               <Icon icon="gg:copy" />
-              <template #copied>
-                <Icon icon="gg:check" />
-              </template>
             </ClipboardButton>
           </div>
           <div class="description-cell">
@@ -53,9 +63,6 @@
             <div class="content">{{ props.iconData.relativePath }}</div>
             <ClipboardButton ghost :text="props.iconData.relativePath">
               <Icon icon="gg:copy" />
-              <template #copied>
-                <Icon icon="gg:check" />
-              </template>
             </ClipboardButton>
           </div>
           <div class="description-cell">
@@ -63,6 +70,9 @@
             <div class="content">{{ formatDate }} {{ relativeDate }}</div>
           </div>
         </div>
+        <!-- <div>
+          <NButton>123123</NButton>
+        </div> -->
       </div>
     </template>
     <span v-else></span>
@@ -70,8 +80,9 @@
 </template>
 
 <script setup lang="ts">
-  import { NModal } from 'naive-ui'
+  import { NModal, NButton } from 'naive-ui'
   import { computed, ref, watch } from 'vue'
+  import { useToggle } from '@vueuse/core'
   import { Icon } from '@iconify/vue'
   import ClipboardButton from '../components/ClipboardButton.vue'
   import {
@@ -97,6 +108,7 @@
       emits('update:show', value)
     }
   })
+  const [isInvert, toggleInvert] = useToggle()
   const svgRenderRef = ref<HTMLSpanElement>()
   const iconFontRenderRef = ref<HTMLSpanElement>()
 
@@ -156,9 +168,11 @@
         position: relative;
         background-color: #2a2a2a;
         background-image: radial-gradient(circle, #454649 1px, transparent 1px);
+        background-position: 0 0;
         background-size: 1rem 1rem;
         color: #fff;
         overflow: hidden;
+
         img,
         i,
         span {
@@ -182,13 +196,13 @@
           pointer-events: none;
         }
         span::before {
-          width: 2000%;
+          width: 100vw;
           height: 100%;
           border-top: $polyline;
           border-bottom: $polyline;
         }
         span::after {
-          height: 2000%;
+          height: 100vh;
           width: 100%;
           border-left: $polyline;
           border-right: $polyline;
@@ -205,6 +219,7 @@
         display: block;
         font-size: 0;
         float: left;
+
         &::before {
           font-size: var(--size);
         }
@@ -228,28 +243,55 @@
         color: var(--main-color);
       }
 
-      .size-select {
+      .actions-container {
         position: absolute;
         bottom: 10px;
         right: 10px;
+        display: flex;
+        align-items: center;
+        column-gap: 10px;
+      }
+      .size-select {
         color: #fff;
         width: 25px;
         height: 25px;
         line-height: 0;
         border-radius: 4px;
+        position: relative;
 
-        &:hover {
-          background: #444;
-        }
         span,
         select {
           position: absolute;
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%) rotate(180deg);
+          cursor: pointer;
         }
         select {
           opacity: 0;
+        }
+      }
+      .color-select {
+        cursor: pointer;
+
+        .black-btn,
+        .white-btn {
+          width: 15px;
+          height: 15px;
+          border-radius: 50%;
+        }
+        .black-btn {
+          background: #000;
+        }
+        .white-btn {
+          background: #fff;
+        }
+      }
+
+      &.invert {
+        .svg-raw-container img,
+        .iconfont-container i {
+          filter: invert(100%);
         }
       }
     }
