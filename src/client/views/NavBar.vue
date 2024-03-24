@@ -2,13 +2,6 @@
   <div class="header">
     <div class="header__left">
       <h1 class="header__title">SuperIcon</h1>
-      <a
-        title="Drawing Rules"
-        target="_blank"
-        href="https://www.iconfont.cn/help/detail?spm=a313x.help_article_detail.i1.de97f49b6.68803a81iRoXjB&helptype=draw"
-      >
-        <Icon icon="bi:question-circle"></Icon>
-      </a>
     </div>
     <div class="header__right">
       <NInput class="search-input" placeholder="Search..." clearable v-model:value="searchText">
@@ -18,12 +11,16 @@
       </NInput>
       <div class="buttons">
         <Button title="Sort Mode" ghost size="large" @click="toggleSort">
-          <Icon v-if="sortMode === 'default'" icon="bi:sort-alpha-down"></Icon>
-          <Icon v-else icon="gg:calendar-dates"></Icon>
+          <Icon v-show="sortMode === 'default'" icon="bi:sort-alpha-down"></Icon>
+          <Icon v-show="sortMode === 'date'" icon="gg:calendar-dates"></Icon>
         </Button>
         <NDivider vertical />
         <Appearance />
         <NDivider vertical />
+
+        <Button title="GitHub" ghost size="large" @click="showTips = true">
+          <Icon icon="bi:question-circle"></Icon>
+        </Button>
         <Button title="GitHub" ghost size="large" @click="gotoGithub">
           <Icon icon="bi:github"></Icon>
         </Button>
@@ -35,6 +32,7 @@
     <NSkeleton width="150px" v-if="isLoading" />
     <span v-else>{{ iconCount }} icons in total.</span>
   </div>
+  <TipsModal v-model:show="showTips"></TipsModal>
 </template>
 
 <script setup lang="ts">
@@ -44,7 +42,10 @@
   import Button from '../components/Button.vue'
   import ThemeToggleBtn from '../components/ThemeToggleBtn.vue'
   import Appearance from './Appearance/index.vue'
+  import TipsModal from './TipsModal/index.vue'
+  import { ref } from 'vue'
 
+  const showTips = ref(false)
   function gotoGithub() {
     window.open('https://github.com/yue1123/vite-plugin-supericon')
   }
@@ -67,18 +68,9 @@
       align-items: center;
       padding-right: 30px;
       line-height: 1;
-      a {
-        display: inline-block;
-        font-size: 16px;
-        color: var(--main-color);
-        margin-left: 10px;
-        &:hover {
-          color: var(--hover-color);
-        }
-      }
     }
-
     &__title {
+      font-family: 'Comfortaa', sans-serif;
       font-weight: 600;
     }
 
