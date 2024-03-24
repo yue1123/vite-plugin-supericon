@@ -1,6 +1,9 @@
 <template>
   <Button title="Copy" v-bind="$attrs" v-if="isSupported" @click="handleCopy">
-    <slot v-if="copied" name="copied"></slot>
+    <slot v-if="copied" name="copied">
+      <Icon icon="gg:check" />
+    </slot>
+
     <slot v-else></slot>
   </Button>
 </template>
@@ -9,6 +12,7 @@
   import Button from './Button.vue'
   import { useClipboard } from '@vueuse/core'
   import { useMessage } from 'naive-ui'
+  import { Icon } from '@iconify/vue'
 
   export interface Props {
     /** copy content */

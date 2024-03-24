@@ -41,21 +41,12 @@
             <div class="button-group">
               <ClipboardButton @click.stop title="Copy icon id" :text="item.useId">
                 <Icon icon="gg:hashtag" />
-                <template #copied>
-                  <Icon icon="gg:check" />
-                </template>
               </ClipboardButton>
               <ClipboardButton @click.stop title="Copy html" :text="getHtmlCode(item.useId)">
                 <Icon icon="gg:clipboard" />
-                <template #copied>
-                  <Icon icon="gg:check" />
-                </template>
               </ClipboardButton>
               <ClipboardButton @click.stop title="Copy JSX" :text="getJsxCode(item.useId)">
                 <Icon icon="gg:code" />
-                <template #copied>
-                  <Icon icon="gg:check" />
-                </template>
               </ClipboardButton>
             </div>
           </div>
@@ -89,6 +80,7 @@
   import { ref } from 'vue'
 
   const showDetail = ref(false)
+  const showTips = ref(false)
   const currentClickIcon = ref<_IconDataItem | null>(null)
 
   function handleShowDetail(item: _IconDataItem) {
