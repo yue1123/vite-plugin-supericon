@@ -1,6 +1,6 @@
 import { IconDataItem, UpdatePayload } from '../../types'
 import { computed, ref } from 'vue'
-import { getHot } from './getHot'
+import { baseUrl, getHot } from './getHot'
 import { searchResults, searchText } from './search'
 import { useStorage } from '@vueuse/core'
 import { createDiscreteApi } from 'naive-ui'
@@ -49,7 +49,7 @@ function update(data: UpdatePayload) {
   list.value = data.iconList
 
   const styleLink = document.getElementById('supericon') as HTMLLinkElement
-  const href = `/@fs/${data.cssPath}?v=${Date.now()}`
+  const href = `${baseUrl || ''}@fs/${data.cssPath}?v=${Date.now()}`
 
   if (styleLink) {
     styleLink.href = href

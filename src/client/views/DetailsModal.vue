@@ -16,7 +16,7 @@
         >
           <div class="svg-raw-container">
             <span>
-              <img ref="svgRenderRef" :src="`/@fs/${props.iconData.absolutePath}`" alt="" />
+              <img ref="svgRenderRef" :src="`${baseUrl}@fs/${props.iconData.absolutePath}`" alt="" />
             </span>
           </div>
           <div class="iconfont-container">
@@ -90,7 +90,8 @@
     formatRelativeDate,
     tryFixDecimal,
     renderSize,
-    sizeOptions
+    sizeOptions,
+    baseUrl
   } from '../logic'
 
   export interface Props {
