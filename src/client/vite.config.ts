@@ -13,6 +13,13 @@ export default defineConfig(() => {
         '@': __dirname
       }
     },
+    css: {
+      preprocessorOptions: {
+        scss: {
+          api: 'modern-compiler'
+        }
+      }
+    },
     plugins: [
       vue(),
       Inspect(),

@@ -1,5 +1,5 @@
-@import './reset.scss';
-@import './base.scss';
-@import './vars.scss';
-@import './font.scss';
-@import './animation.scss';
+@forward './reset.scss';
+@forward './base.scss';
+@forward './vars.scss';
+@forward './font.scss';
+@forward './animation.scss';
