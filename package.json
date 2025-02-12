@@ -64,7 +64,7 @@
   },
   "dependencies": {
     "fs-extra": "^11.2.0",
-    "fantasticon": "^2.0.0",
+    "@twbs/fantasticon": "^3.0.0",
     "open": "^10.0.4",
     "picocolors": "^1.0.0",
     "sirv": "^2.0.4"

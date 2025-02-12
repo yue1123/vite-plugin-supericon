@@ -1,4 +1,4 @@
-import { FontAssetType, OtherAssetType, generateFonts, RunnerOptions } from 'fantasticon'
+import { FontAssetType, OtherAssetType, generateFonts, RunnerOptions } from '@twbs/fantasticon'
 import { readFileSync, statSync, writeFileSync } from 'node:fs'
 import { relative, join } from 'node:path'
 import { ensureDirSync } from 'fs-extra'
