@@ -146,8 +146,9 @@ export function superIcon(options: Options): Plugin {
     async load(id) {
       if (id === RESOLVED_VIRTUAL_MODULE_ID) {
         await fontsGenerator.run()
-        return `@import './node_modules/.supericon/${DEFAULT_FONT_NAME}.css'`
+        return `console.log(123123);console.log(123123)`
       }
-    }
+    },
+    handleHotUpdate() {}
   }
 }

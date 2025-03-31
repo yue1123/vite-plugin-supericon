@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { superIcon } from '../node'
+import { superIcon } from '../node/index.js'
 import { resolve } from 'node:path'
 import Inspect from 'vite-plugin-inspect'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig(() => {
   return {
@@ -16,6 +17,7 @@ export default defineConfig(() => {
     plugins: [
       vue(),
       Inspect(),
+      tailwindcss(),
       superIcon({
         srcDir: './demo/src/assets/icons'
       })
