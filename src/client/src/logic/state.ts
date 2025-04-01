@@ -1,9 +1,8 @@
-import { IconDataItem, UpdatePayload } from '../../types'
+import { IconDataItem, UpdatePayload } from '../../../types.js'
 import { computed, ref } from 'vue'
-import { getHot } from './getHot'
-import { searchResults, searchText } from './search'
+import { getHot } from './getHot.js'
+import { searchResults, searchText } from './search.js'
 import { useStorage } from '@vueuse/core'
-import { createDiscreteApi } from 'naive-ui'
 
 export interface _IconDataItem extends IconDataItem {
   /** svg body same with other icon */
@@ -63,11 +62,9 @@ function update(data: UpdatePayload) {
       isLoading.value = false
     }
     link.onerror = function () {
-      const { message } = createDiscreteApi(['message'])
       console.error(
         '[vite-plugin-supericon] Link file can not be find, please restart vite server and try again'
       )
-      message.error('Link file can not be find, please restart vite server and try again')
     }
     document.head.append(link)
   }

@@ -11,7 +11,7 @@ export default defineConfig(() => {
 
     resolve: {
       alias: {
-        '@': __dirname
+        '@': resolve(__dirname, './src')
       }
     },
     plugins: [

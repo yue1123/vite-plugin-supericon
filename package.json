@@ -41,25 +41,16 @@
   "homepage": "https://github.com/yue1123/vite-plugin-supericon",
   "license": "MIT",
   "devDependencies": {
-    "@iconify/vue": "^4.3.0",
     "@rollup/plugin-typescript": "^11.1.6",
-    "@tailwindcss/vite": "^4.0.17",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^18.19.84",
     "@vitejs/plugin-vue": "^5.2.3",
-    "@vueuse/core": "^10.11.1",
     "prettier": "^2.8.8",
     "prettier-plugin-tailwindcss": "^0.6.11",
     "rimraf": "^4.4.1",
-    "sass": "^1.86.0",
-    "tailwindcss": "^4.0.17",
     "tsup": "^8.4.0",
     "typescript": "^4.9.5",
-    "vite": "6.2.4",
-    "vite-hot-client": "^0.2.4",
-    "vite-plugin-inspect": "^0.8.9",
-    "vue": "^3.5.13",
-    "vue-tsc": "^1.8.27"
+    "vite": "6.2.4"
   },
   "peerDependencies": {
     "vite": "*"

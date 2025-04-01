@@ -1,4 +1,4 @@
-import { WebSocketServer } from 'vite'
+import {type WebSocketServer } from 'vite'
 import { NAME } from './constants'
 
 export function createRpcServer<T extends Record<string, any>>(ws: WebSocketServer) {
