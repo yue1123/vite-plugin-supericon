@@ -1,2 +1,8 @@
 packages:
   - demo
+
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - esbuild
+  - ttf2woff2
+  - vue-demi
