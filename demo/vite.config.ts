@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       vue(),
       superIcon({
+        name: 'my-icons',
         srcDir: './src/assets/icons'
       })
     ],

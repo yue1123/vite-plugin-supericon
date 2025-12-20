@@ -110,7 +110,6 @@ export function superIcon(options: Options): Plugin {
       if (config.resolve && config.resolve.alias) {
         const { alias } = config.resolve
         const aliasKeys = Object.keys(alias)
-        debugger
         isResolved = aliasKeys.some((aliasKey) => {
           if (_srcDir.includes(aliasKey)) {
             // @ts-ignore
@@ -136,7 +135,9 @@ export function superIcon(options: Options): Plugin {
       config = _config
     },
     configureServer(ser) {
-      isDev && configureServer(ser)
+      if (isDev) {
+        configureServer(ser)
+      }
     },
     resolveId(id) {
       if (id === VIRTUAL_MODULE_ID) {
@@ -146,7 +147,7 @@ export function superIcon(options: Options): Plugin {
     async load(id) {
       if (id === RESOLVED_VIRTUAL_MODULE_ID) {
         await fontsGenerator.run()
-        return `@import './node_modules/.supericon/${DEFAULT_FONT_NAME}.css'`
+        return `@import './node_modules/.supericon/${name}.css'`
       }
     }
   }
