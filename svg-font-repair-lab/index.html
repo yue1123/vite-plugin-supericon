@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SVG → iconfont repair lab</title>
+<script src="./vendor/paper-full.min.js"></script>
+<script src="./vendor/opentype.min.js"></script>
+<script src="./repair-svg.js"></script>
+<script src="./icons.js"></script>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --border:#262b36; --text:#e6e9ef; --muted:#8b94a6; --good:#3fd17f; --bad:#ff5d5d; --accent:#63e2b7; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; padding:24px; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  .sub { color:var(--muted); margin:0 0 20px; }
+  table { border-collapse:collapse; width:100%; }
+  th,td { border:1px solid var(--border); padding:10px; vertical-align:top; }
+  th { background:var(--panel); text-align:left; font-weight:600; }
+  .cell { display:flex; flex-direction:column; gap:6px; align-items:center; }
+  .box { width:128px; height:128px; background:
+      conic-gradient(#222 0 25%, #2b2b2b 0 50%, #222 0 75%, #2b2b2b 0) 0 0/16px 16px;
+      border:1px solid var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--accent); }
+  .box svg, .box .glyph { width:96px; height:96px; font-size:96px; line-height:96px; color:var(--accent); }
+  canvas { image-rendering: pixelated; }
+  .label { font-size:11px; color:var(--muted); }
+  .name { font-weight:700; }
+  .note { color:var(--muted); font-size:11px; max-width:200px; }
+  .verdict { font-weight:700; padding:2px 8px; border-radius:4px; display:inline-block; }
+  .verdict.pass { background:rgba(63,209,127,.15); color:var(--good); }
+  .verdict.fail { background:rgba(255,93,93,.15); color:var(--bad); }
+  .num { font-variant-numeric: tabular-nums; }
+  .strategy { margin:16px 0; padding:12px; background:var(--panel); border:1px solid var(--border); border-radius:8px; }
+  code { color:var(--accent); }
+  details { margin-top:6px; }
+  pre { white-space:pre-wrap; word-break:break-all; font-size:10px; color:var(--muted); max-width:240px; max-height:90px; overflow:auto; }
+</style>
+</head>
+<body>
+  <h1>SVG → iconfont repair lab</h1>
+  <p class="sub">Source SVG vs a <b>real opentype.js font</b> built from raw geometry (reproduces the fantasticon/svgicons2svgfont bug) vs the repaired geometry. Diff = % of pixels whose ink presence differs from the source. <span id="status" style="color:var(--accent)"></span></p>
+
+  <div class="strategy">
+    <b>Repair strategy:</b> <code id="strategyName">—</code>
+    <div class="label">Set <code>LAB.strategy = 'union' | 'reorient' | 'unite+reorient'</code> in the console then <code>LAB.run()</code>.</div>
+  </div>
+
+  <table id="grid">
+    <thead>
+      <tr>
+        <th>icon</th>
+        <th>① source SVG<div class="label">browser, native fill-rule</div></th>
+        <th>② naïve font<div class="label">real font, raw geometry (BUG)</div></th>
+        <th>③ fixed font<div class="label">real font, repaired geometry</div></th>
+        <th>diff vs source<div class="label">naïve → fixed</div></th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+<script>
+const SIZE = 128;        // raster size for pixel diff
+const UPM = 1000;        // font units per em
+const ASCENDER = 1000;
+const DESCENDER = 0;
+const INK_ALPHA = 40;    // alpha threshold for "has ink"
+
+paper.setup(document.createElement('canvas'));
+
+// ---------- paper helpers ----------
+// paper resolves width="1em" as 1 user unit and squashes the viewBox into [0,1].
+// Force width/height to the viewBox size so geometry stays in viewBox units.
+function prepSvg(svg) {
+  const vb = getViewBox(svg);
+  return svg.replace(/<svg\b[^>]*>/, (tag) =>
+    tag.replace(/\s(?:width|height)="[^"]*"/g, '').replace('<svg', `<svg width="${vb.w}" height="${vb.h}"`));
+}
+
+function importLeafPaths(svg) {
+  const proj = paper.project;
+  proj.clear();
+  const root = proj.importSVG(prepSvg(svg), { expandShapes: true, insert: false });
+  const leaves = [];
+  (function walk(it) {
+    if (!it) return;
+    if (it.className === 'Path' || it.className === 'CompoundPath') { leaves.push(it); return; }
+    if (it.children) it.children.forEach(walk);
+  })(root);
+  return leaves;
+}
+
+// Flatten a PathItem to its constituent simple paper.Path subpaths.
+function subPaths(item) {
+  return item.className === 'CompoundPath' ? item.children.slice() : [item];
+}
+
+// ---------- repair strategies ----------
+function leafFillRule(item) {
+  const fr = item.fillRule || (item.style && item.style.fillRule);
+  return fr === 'evenodd' ? 'evenodd' : 'nonzero';
+}
+
+// Make a multi-subpath item non-zero-correct in place (holes wound opposite),
+// interpreting its CURRENT geometry under its own declared fill-rule.
+function normalizeLeaf(item) {
+  if (item.className === 'CompoundPath' && item.children.length > 1) {
+    const eo = leafFillRule(item) === 'evenodd';
+    item.reorient(!eo /* interpret as non-zero? */, true /* outer clockwise */);
+  }
+  return item;
+}
+
+// The shipped module — the lab tests this exact code path via strategy 'module'.
+const repairer = createSvgRepairer(paper);
+
+function repair(svg, strategy) {
+  strategy = strategy || 'normalize+concat';
+
+  if (strategy === 'module') {
+    // Route through the deliverable repair-svg.js, then re-import its single path.
+    const d = repairer.repairToPathData(svg);
+    return new paper.CompoundPath({ pathData: d, insert: false });
+  }
+
+  const leaves = importLeafPaths(svg).map(l => l.clone({ insert: false }));
+
+  if (strategy === 'reorient') {
+    // Merge every subpath into ONE compound path, declare even-odd intent,
+    // then reorient so it fills correctly under the font's non-zero rule.
+    // (Wrong when same-colour shapes overlap — kept for comparison.)
+    const all = [];
+    leaves.forEach(c => subPaths(c).forEach(sp => all.push(sp.clone({ insert: false }))));
+    const cp = new paper.CompoundPath({ children: all, insert: false });
+    cp.reorient(false /* even-odd */, true);
+    return cp;
+  }
+
+  if (strategy === 'normalize+concat') {
+    // Reorient each path to be non-zero-correct under ITS OWN fill-rule, then
+    // just collect all contours (no boolean union). Under non-zero, overlapping
+    // same-colour fills add (stay filled); each path keeps its own holes.
+    // Avoids paper's imprecise boolean ops AND the evenodd-overlap pitfall.
+    const all = [];
+    leaves.map(normalizeLeaf).forEach(c => subPaths(c).forEach(sp => all.push(sp.clone({ insert: false }))));
+    return new paper.CompoundPath({ children: all, insert: false });
+  }
+
+  // 'union': trust paper's unite to honour each operand's fill-rule.
+  // 'normalize+union': first reorient each path for its own rule, then union
+  //   -> union of each path's true filled region == the single-colour icon.
+  let parts = leaves;
+  if (strategy === 'normalize+union') parts = leaves.map(normalizeLeaf);
+
+  let acc = parts[0] || new paper.Path({ insert: false });
+  for (let i = 1; i < parts.length; i++) acc = acc.unite(parts[i], { insert: false });
+  if (strategy === 'normalize+union' && acc.className === 'CompoundPath') acc.reorient(true, true);
+  return acc;
+}
+
+// Raw geometry exactly as svgicons2svgfont would dump it: all subpaths concatenated, no winding fix.
+function rawGeometry(svg) {
+  const leaves = importLeafPaths(svg);
+  const all = [];
+  leaves.forEach(l => subPaths(l).forEach(sp => all.push(sp.clone({ insert: false }))));
+  return new paper.CompoundPath({ children: all, insert: false });
+}
+
+// ---------- paper PathItem -> opentype.Path (scale + Y flip) ----------
+function itemToOpentype(item, vb) {
+  const sx = UPM / vb.w, sy = UPM / vb.h;
+  const tx = p => [p.x * sx, (vb.h - p.y) * sy]; // flip Y: SVG top -> font top
+  const ot = new opentype.Path();
+  for (const path of subPaths(item)) {
+    if (!path.segments || !path.segments.length) continue;
+    ot.moveTo(...tx(path.firstSegment.point));
+    for (const curve of path.curves) {
+      if (curve.isStraight()) {
+        ot.lineTo(...tx(curve.point2));
+      } else {
+        const c1 = curve.point1.add(curve.handle1);
+        const c2 = curve.point2.add(curve.handle2);
+        ot.curveTo(...tx(c1), ...tx(c2), ...tx(curve.point2));
+      }
+    }
+    ot.close(); // filled icon contours are always closed
+  }
+  return ot;
+}
+
+// ---------- build a real font from one opentype.Path ----------
+function buildFont(otPath, unicode) {
+  const notdef = new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: UPM, path: new opentype.Path() });
+  const glyph = new opentype.Glyph({ name: 'icon', unicode, advanceWidth: UPM, path: otPath });
+  const font = new opentype.Font({
+    familyName: 'Lab', styleName: 'Regular',
+    unitsPerEm: UPM, ascender: ASCENDER, descender: DESCENDER,
+    glyphs: [notdef, glyph]
+  });
+  return { font, glyph };
+}
+
+// ---------- rasterizers ----------
+function rasterizeGlyph(glyph, size) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = size;
+  const ctx = cv.getContext('2d');
+  // baseline at bottom (y=size), fontSize=size -> glyph (font-y 0..UPM) fills 0..size
+  const p = glyph.getPath(0, size, size);
+  p.fill = '#000';
+  p.draw(ctx);
+  return cv;
+}
+
+function rasterizeSvg(svg, size) {
+  return new Promise((resolve, reject) => {
+    const cv = document.createElement('canvas'); cv.width = cv.height = size;
+    const ctx = cv.getContext('2d');
+    let s = svg.replace(/currentColor/g, '#000');
+    if (!/\bwidth=/.test(s.split('>')[0])) s = s.replace('<svg', `<svg width="${size}" height="${size}"`);
+    else s = s.replace(/width="[^"]*"/, `width="${size}"`).replace(/height="[^"]*"/, `height="${size}"`);
+    const img = new Image();
+    img.onload = () => { ctx.drawImage(img, 0, 0, size, size); resolve(cv); };
+    img.onerror = reject;
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+  });
+}
+
+function diff(refCanvas, otherCanvas, size) {
+  const a = refCanvas.getContext('2d').getImageData(0, 0, size, size).data;
+  const b = otherCanvas.getContext('2d').getImageData(0, 0, size, size).data;
+  let mismatch = 0, ink = 0;
+  for (let i = 0; i < a.length; i += 4) {
+    const pa = a[i + 3] > INK_ALPHA, pb = b[i + 3] > INK_ALPHA;
+    if (pa) ink++;
+    if (pa !== pb) mismatch++;
+  }
+  return { mismatch, ink, total: size * size, pct: +(100 * mismatch / (size * size)).toFixed(3) };
+}
+
+// ---------- viewBox ----------
+function getViewBox(svg) {
+  const m = svg.match(/viewBox="([\d.\-\s]+)"/);
+  if (m) { const [x, y, w, h] = m[1].trim().split(/\s+/).map(Number); return { x, y, w, h }; }
+  return { x: 0, y: 0, w: 24, h: 24 };
+}
+
+// ---------- main ----------
+const LAB = window.LAB = {
+  strategy: 'module',
+  results: [],
+  diffs: [],
+  fontUrls: {},
+  // Run every candidate strategy against every icon, return a diff matrix.
+  async compareStrategies() {
+    const out = [];
+    const strategies = ['union', 'reorient', 'normalize+union', 'normalize+concat', 'module'];
+    for (const icon of window.ICONS) {
+      const vb = getViewBox(icon.svg);
+      const truthCv = await rasterizeSvg(icon.svg, SIZE);
+      const row = { name: icon.name };
+      try { row.naive = diff(truthCv, rasterizeGlyph(buildFont(itemToOpentype(rawGeometry(icon.svg), vb), 0xE101).glyph, SIZE), SIZE).pct; }
+      catch (e) { row.naive = 'ERR'; }
+      for (const s of strategies) {
+        try {
+          const item = repair(icon.svg, s);
+          const g = buildFont(itemToOpentype(item, vb), 0xE100).glyph;
+          row[s] = diff(truthCv, rasterizeGlyph(g, SIZE), SIZE).pct;
+        } catch (e) { row[s] = 'ERR:' + (e.message || e); }
+      }
+      out.push(row);
+    }
+    console.table(out);
+    return out;
+  },
+  // Diff the source SVG against the REAL browser font engine (@font-face + fillText),
+  // not opentype's getPath. This is the truest "does the iconfont look like the SVG" test.
+  async fontFaceDiff(strategy) {
+    strategy = strategy || this.strategy;
+    const out = [];
+    let cp = 0xF001;
+    for (const icon of window.ICONS) {
+      const vb = getViewBox(icon.svg);
+      const truthCv = await rasterizeSvg(icon.svg, SIZE);
+      const code = cp++;
+      const fam = 'ff' + code;
+      const fixed = buildFont(itemToOpentype(repair(icon.svg, strategy), vb), code);
+      const buf = fixed.font.toArrayBuffer();
+      const face = new FontFace(fam, buf);
+      await face.load(); document.fonts.add(face);
+      const cv = document.createElement('canvas'); cv.width = cv.height = SIZE;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = '#000';
+      ctx.font = `${SIZE}px "${fam}"`;
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(String.fromCharCode(code), 0, SIZE);
+      out.push({ name: icon.name, realFontPct: diff(truthCv, cv, SIZE).pct });
+    }
+    console.table(out);
+    return out;
+  },
+  async run() {
+    document.getElementById('strategyName').textContent = this.strategy;
+    const rows = document.getElementById('rows');
+    rows.innerHTML = '';
+    this.results = []; this.diffs = [];
+    let cp = 0xE001;
+    for (const icon of window.ICONS) {
+      const vb = getViewBox(icon.svg);
+      let res = { name: icon.name, ok: false, error: null };
+      try {
+        const rawItem = rawGeometry(icon.svg);
+        const fixItem = repair(icon.svg, this.strategy);
+
+        const naiveCp = cp++, fixedCp = cp++;
+        const naive = buildFont(itemToOpentype(rawItem, vb), naiveCp);
+        const fixed = buildFont(itemToOpentype(fixItem, vb), fixedCp);
+
+        // real font @font-face urls (visual proof)
+        const naiveUrl = URL.createObjectURL(new Blob([naive.font.toArrayBuffer()], { type: 'font/ttf' }));
+        const fixedUrl = URL.createObjectURL(new Blob([fixed.font.toArrayBuffer()], { type: 'font/ttf' }));
+
+        const truthCv = await rasterizeSvg(icon.svg, SIZE);
+        const naiveCv = rasterizeGlyph(naive.glyph, SIZE);
+        const fixedCv = rasterizeGlyph(fixed.glyph, SIZE);
+
+        const dNaive = diff(truthCv, naiveCv, SIZE);
+        const dFixed = diff(truthCv, fixedCv, SIZE);
+
+        res = { name: icon.name, ok: true, dNaive, dFixed, fixedPathData: fixItem.pathData };
+        this.diffs.push({ name: icon.name, naivePct: dNaive.pct, fixedPct: dFixed.pct });
+
+        renderRow(rows, icon, vb, { truthCv, naiveCv, fixedCv, dNaive, dFixed, naiveUrl, fixedUrl, naiveCp, fixedCp, fixItem });
+      } catch (e) {
+        res.error = String(e && e.stack || e);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td class="name">${icon.name}</td><td colspan="4" style="color:var(--bad)">ERROR: ${res.error}</td>`;
+        rows.appendChild(tr);
+        console.error(icon.name, e);
+      }
+      this.results.push(res);
+    }
+    document.getElementById('status').textContent = 'done · ' + JSON.stringify(this.diffs);
+    return this.diffs;
+  }
+};
+
+function fontFaceStyle(family, url) {
+  const st = document.createElement('style');
+  st.textContent = `@font-face{font-family:'${family}';src:url(${url}) format('truetype');}`;
+  document.head.appendChild(st);
+}
+
+function renderRow(rows, icon, vb, d) {
+  const fam1 = 'lab' + d.naiveCp, fam2 = 'lab' + d.fixedCp;
+  fontFaceStyle(fam1, d.naiveUrl);
+  fontFaceStyle(fam2, d.fixedUrl);
+  const tr = document.createElement('tr');
+
+  const tdName = document.createElement('td');
+  tdName.innerHTML = `<div class="name">${icon.name}</div><div class="note">${icon.note || ''}</div>`;
+
+  const tdSrc = document.createElement('td');
+  const srcBox = document.createElement('div'); srcBox.className = 'cell';
+  const ib = document.createElement('div'); ib.className = 'box'; ib.innerHTML = icon.svg;
+  srcBox.appendChild(ib); srcBox.appendChild(canvasLabel(d.truthCv, 'rasterized'));
+  tdSrc.appendChild(srcBox);
+
+  const tdNaive = mkFontCell(fam1, d.naiveCp, d.naiveCv);
+  const tdFixed = mkFontCell(fam2, d.fixedCp, d.fixedCv);
+
+  const tdDiff = document.createElement('td');
+  const naivePass = d.dNaive.pct < 1, fixedPass = d.dFixed.pct < 1;
+  tdDiff.innerHTML =
+    `<div>naïve: <span class="verdict ${naivePass ? 'pass' : 'fail'} num">${d.dNaive.pct}%</span></div>` +
+    `<div style="margin-top:8px">fixed: <span class="verdict ${fixedPass ? 'pass' : 'fail'} num">${d.dFixed.pct}%</span></div>` +
+    `<details><summary class="label">repaired d</summary><pre>${d.fixItem.pathData}</pre></details>`;
+
+  tr.append(tdName, tdSrc, tdNaive, tdFixed, tdDiff);
+  rows.appendChild(tr);
+}
+
+function mkFontCell(family, cp, canvas) {
+  const td = document.createElement('td');
+  const cell = document.createElement('div'); cell.className = 'cell';
+  const box = document.createElement('div'); box.className = 'box';
+  const glyph = document.createElement('span'); glyph.className = 'glyph';
+  glyph.style.fontFamily = `'${family}'`;
+  glyph.textContent = String.fromCharCode(cp);
+  box.appendChild(glyph);
+  cell.appendChild(box);
+  cell.appendChild(canvasLabel(canvas, 'rasterized'));
+  td.appendChild(cell);
+  return td;
+}
+
+function canvasLabel(canvas, text) {
+  const wrap = document.createElement('div'); wrap.className = 'cell';
+  canvas.style.width = '64px'; canvas.style.height = '64px';
+  canvas.style.border = '1px solid var(--border)'; canvas.style.borderRadius = '4px';
+  canvas.style.background = '#fff';
+  const l = document.createElement('div'); l.className = 'label'; l.textContent = text;
+  wrap.appendChild(canvas); wrap.appendChild(l);
+  return wrap;
+}
+
+window.addEventListener('load', () => LAB.run());
+</script>
+</body>
+</html>

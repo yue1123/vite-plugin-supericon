@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>stroke -> fill: paper vs potrace</title>
+<script src="./vendor/paper-full.min.js"></script>
+<script src="./vendor/potrace.js"></script>
+<script src="./vendor/imagetracer.js"></script>
+<script src="./stroke-to-fill.js"></script>
+<script src="./stroke-to-fill-paper.js"></script>
+<script src="./stroke-icons.js"></script>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --border:#262b36; --text:#e6e9ef; --muted:#8b94a6; --good:#3fd17f; --bad:#ff5d5d; --warn:#f4c152; --accent:#63e2b7; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; padding:24px; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  .sub { color:var(--muted); margin:0 0 16px; max-width:960px; }
+  table { border-collapse:collapse; width:100%; }
+  th,td { border:1px solid var(--border); padding:9px; vertical-align:top; }
+  th { background:var(--panel); text-align:left; font-weight:600; }
+  .box { width:96px; height:96px; background:
+      conic-gradient(#222 0 25%, #2b2b2b 0 50%, #222 0 75%, #2b2b2b 0) 0 0/14px 14px;
+      border:1px solid var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--accent); }
+  .box svg { width:72px; height:72px; color:var(--accent); }
+  canvas { image-rendering: pixelated; background:#fff; border:1px solid var(--border); border-radius:4px; width:72px; height:72px; }
+  .label { font-size:11px; color:var(--muted); }
+  .name { font-weight:700; }
+  .note { color:var(--muted); font-size:10px; max-width:200px; }
+  .verdict { font-weight:700; padding:2px 7px; border-radius:4px; display:inline-block; }
+  .verdict.win { background:rgba(63,209,127,.15); color:var(--good); }
+  .verdict.lose { background:rgba(244,193,82,.15); color:var(--warn); }
+  .num { font-variant-numeric: tabular-nums; }
+  #status { color:var(--accent); font-size:13px; }
+  td.grp { display:flex; gap:8px; align-items:flex-start; }
+</style>
+</head>
+<body>
+  <h1>stroke → fill: paper (geometric, MIT) vs potrace (trace, GPL) <span id="status">running…</span></h1>
+  <p class="sub">Both convert the same stroked icon to a fill; <b>diff</b> = % of all pixels whose ink-presence differs from the original stroked SVG, rasterized at <span id="sz"></span>px. Lower = closer to the source. The winner per row is highlighted.</p>
+
+  <table id="grid">
+    <thead>
+      <tr>
+        <th>icon</th>
+        <th>① source (stroke)</th>
+        <th>② paper fill + raster</th>
+        <th>paper diff</th>
+        <th>③ potrace fill + raster</th>
+        <th>potrace diff</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+<script>
+const SIZE = 512;
+const INK_ALPHA = 40;
+document.getElementById('sz').textContent = SIZE;
+paper.setup(document.createElement('canvas'));
+const PAPER_FIX = createStrokeToFill(paper);
+
+function rasterizeSvg(svg, size) {
+  return new Promise((resolve, reject) => {
+    const cv = document.createElement('canvas'); cv.width = cv.height = size;
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    let s = svg.replace(/currentColor/g, '#000');
+    s = s.replace(/<svg\b[^>]*>/, (t) => t.replace(/\s(?:width|height)\s*=\s*(?:"[^"]*"|'[^']*')/g, '').replace('<svg', `<svg width="${size}" height="${size}"`));
+    const img = new Image();
+    img.onload = () => { ctx.drawImage(img, 0, 0, size, size); resolve(cv); };
+    img.onerror = reject;
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+  });
+}
+function diff(a, b, size) {
+  const da = a.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, size, size).data;
+  const db = b.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, size, size).data;
+  let mismatch = 0, ink = 0;
+  for (let i = 0; i < da.length; i += 4) {
+    const pa = da[i + 3] > INK_ALPHA, pb = db[i + 3] > INK_ALPHA;
+    if (pa) ink++; if (pa !== pb) mismatch++;
+  }
+  return { pct: +(100 * mismatch / (size * size)).toFixed(3), pctOfInk: ink ? +(100 * mismatch / ink).toFixed(2) : 0, ink };
+}
+function svgBox(svg) { const d = document.createElement('div'); d.className = 'box'; d.innerHTML = svg; return d; }
+
+async function run() {
+  const rows = document.getElementById('rows');
+  const results = [];
+  for (const icon of window.STROKE_ICONS) {
+    const tr = document.createElement('tr');
+    const row = { name: icon.name };
+    try {
+      const srcCv = await rasterizeSvg(icon.svg, SIZE);
+
+      let paperConv, paperErr = null, paperCv = null, dPaper = null;
+      try { paperConv = PAPER_FIX.strokeToFillSvg(icon.svg); paperCv = await rasterizeSvg(paperConv.svg, SIZE); dPaper = diff(srcCv, paperCv, SIZE); }
+      catch (e) { paperErr = String(e && e.message || e); }
+
+      const potraceConv = await window.strokeToFill(icon.svg);
+      const potraceCv = await rasterizeSvg(potraceConv.svg, SIZE);
+      const dPotrace = diff(srcCv, potraceCv, SIZE);
+
+      row.paper = dPaper ? dPaper.pct : 'ERR';
+      row.paperInk = dPaper ? dPaper.pctOfInk : null;
+      row.pieces = paperConv ? paperConv.pieces : null;
+      row.potrace = dPotrace.pct;
+      row.potraceInk = dPotrace.pctOfInk;
+      results.push(row);
+
+      const paperWins = dPaper && dPaper.pct <= dPotrace.pct;
+      const tdName = document.createElement('td');
+      tdName.innerHTML = `<div class="name">${icon.name}</div><div class="note">${icon.note}</div>`;
+      const tdSrc = document.createElement('td'); tdSrc.appendChild(svgBox(icon.svg));
+      const tdPaper = document.createElement('td'); tdPaper.className = 'grp';
+      if (paperErr) { tdPaper.innerHTML = `<span style="color:var(--bad)">ERR: ${paperErr}</span>`; }
+      else { tdPaper.appendChild(svgBox(paperConv.svg)); tdPaper.appendChild(paperCv); }
+      const tdPaperD = document.createElement('td');
+      tdPaperD.innerHTML = dPaper
+        ? `<span class="verdict ${paperWins ? 'win' : 'lose'} num">${dPaper.pct}%</span><div class="label" style="margin-top:6px">ink ${dPaper.pctOfInk}%</div><div class="label">pieces ${paperConv.pieces}</div>`
+        : `<span style="color:var(--bad)">—</span>`;
+      const tdPot = document.createElement('td'); tdPot.className = 'grp';
+      tdPot.appendChild(svgBox(potraceConv.svg)); tdPot.appendChild(potraceCv);
+      const tdPotD = document.createElement('td');
+      tdPotD.innerHTML = `<span class="verdict ${!paperWins ? 'win' : 'lose'} num">${dPotrace.pct}%</span><div class="label" style="margin-top:6px">ink ${dPotrace.pctOfInk}%</div>`;
+
+      tr.append(tdName, tdSrc, tdPaper, tdPaperD, tdPot, tdPotD);
+    } catch (e) {
+      row.error = String(e && e.message || e);
+      results.push(row);
+      tr.innerHTML = `<td class="name">${icon.name}</td><td colspan="5" style="color:var(--bad)">ERROR: ${String(e && e.stack || e)}</td>`;
+    }
+    rows.appendChild(tr);
+  }
+  const ok = results.filter(r => !r.error && r.paper !== 'ERR');
+  const paperAvg = ok.length ? +(ok.reduce((s, r) => s + r.paper, 0) / ok.length).toFixed(3) : null;
+  const potraceAvg = ok.length ? +(ok.reduce((s, r) => s + r.potrace, 0) / ok.length).toFixed(3) : null;
+  const paperMax = ok.length ? Math.max(...ok.map(r => r.paper)) : null;
+  const paperWins = ok.filter(r => r.paper <= r.potrace).length;
+  window.PAPER_RESULTS = { results, paperAvg, potraceAvg, paperMax, paperWins, n: ok.length };
+  document.getElementById('status').textContent =
+    `· done — paper avg ${paperAvg}% / max ${paperMax}%, potrace avg ${potraceAvg}%; paper ≤ potrace in ${paperWins}/${ok.length}`;
+  document.title = 'DONE ' + JSON.stringify(results.map(r => r.error ? [r.name, 'ERR'] : [r.name, r.paper, r.potrace]));
+  return window.PAPER_RESULTS;
+}
+window.addEventListener('load', () => { run().catch(e => { document.getElementById('status').textContent = 'FATAL: ' + e; document.title = 'FATAL ' + e; }); });
+</script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>stroke -> fill lab</title>
+<script src="./vendor/potrace.js"></script>
+<script src="./stroke-to-fill.js"></script>
+<script src="./stroke-icons.js"></script>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --border:#262b36; --text:#e6e9ef; --muted:#8b94a6; --good:#3fd17f; --bad:#ff5d5d; --accent:#63e2b7; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; padding:24px; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  .sub { color:var(--muted); margin:0 0 16px; max-width:900px; }
+  table { border-collapse:collapse; width:100%; }
+  th,td { border:1px solid var(--border); padding:10px; vertical-align:top; }
+  th { background:var(--panel); text-align:left; font-weight:600; }
+  .cell { display:flex; flex-direction:column; gap:6px; align-items:center; }
+  .box { width:120px; height:120px; background:
+      conic-gradient(#222 0 25%, #2b2b2b 0 50%, #222 0 75%, #2b2b2b 0) 0 0/16px 16px;
+      border:1px solid var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--accent); }
+  .box svg { width:88px; height:88px; color:var(--accent); }
+  canvas { image-rendering: pixelated; background:#fff; border:1px solid var(--border); border-radius:4px; }
+  .label { font-size:11px; color:var(--muted); }
+  .name { font-weight:700; }
+  .note { color:var(--muted); font-size:11px; max-width:220px; }
+  .verdict { font-weight:700; padding:2px 8px; border-radius:4px; display:inline-block; }
+  .verdict.pass { background:rgba(63,209,127,.15); color:var(--good); }
+  .verdict.fail { background:rgba(255,93,93,.15); color:var(--bad); }
+  .num { font-variant-numeric: tabular-nums; }
+  pre { white-space:pre-wrap; word-break:break-all; font-size:10px; color:var(--muted); max-width:240px; max-height:80px; overflow:auto; }
+  #status { color:var(--accent); }
+</style>
+</head>
+<body>
+  <h1>stroke → fill lab <span id="status">running…</span></h1>
+  <p class="sub">Each stroked icon is rasterized at high res by the browser, traced to fill contours by potrace, and re-wrapped as a single &lt;path fill&gt;. <b>diff</b> = % of all pixels whose ink-presence (alpha&gt;threshold) differs between the original stroked SVG and the converted fill SVG, both rasterized at <span id="sz"></span>px. Lower is better; near the antialiasing noise floor = visually identical.</p>
+
+  <table id="grid">
+    <thead>
+      <tr>
+        <th>icon</th>
+        <th>① source (stroke)</th>
+        <th>② converted (fill)</th>
+        <th>source raster</th>
+        <th>fill raster</th>
+        <th>diff vs source</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+<script>
+const SIZE = 512;       // raster size for the pixel diff (bigger -> smaller AA noise %)
+const INK_ALPHA = 40;   // alpha threshold for "has ink"
+document.getElementById('sz').textContent = SIZE;
+
+// Rasterize an SVG to a TRANSPARENT canvas (ink = drawn pixels). currentColor -> #000.
+function rasterizeSvg(svg, size) {
+  return new Promise((resolve, reject) => {
+    const cv = document.createElement('canvas'); cv.width = cv.height = size;
+    const ctx = cv.getContext('2d');
+    let s = svg.replace(/currentColor/g, '#000');
+    s = s.replace(/<svg\b[^>]*>/, (tag) =>
+      tag.replace(/\s(?:width|height)\s*=\s*"[^"]*"/g, '').replace('<svg', `<svg width="${size}" height="${size}"`));
+    const img = new Image();
+    img.onload = () => { ctx.drawImage(img, 0, 0, size, size); resolve(cv); };
+    img.onerror = reject;
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+  });
+}
+
+// Ink-presence mismatch between two canvases.
+function diff(a, b, size) {
+  const da = a.getContext('2d').getImageData(0, 0, size, size).data;
+  const db = b.getContext('2d').getImageData(0, 0, size, size).data;
+  let mismatch = 0, ink = 0;
+  for (let i = 0; i < da.length; i += 4) {
+    const pa = da[i + 3] > INK_ALPHA, pb = db[i + 3] > INK_ALPHA;
+    if (pa) ink++;
+    if (pa !== pb) mismatch++;
+  }
+  return {
+    mismatch, ink, total: size * size,
+    pct: +(100 * mismatch / (size * size)).toFixed(3),         // of all pixels
+    pctOfInk: ink ? +(100 * mismatch / ink).toFixed(2) : 0,    // of icon ink
+  };
+}
+
+function shrink(cv) { cv.style.width = '88px'; cv.style.height = '88px'; return cv; }
+
+async function run() {
+  const rows = document.getElementById('rows');
+  const results = [];
+  for (const icon of window.STROKE_ICONS) {
+    const tr = document.createElement('tr');
+    let conv, d;
+    try {
+      const srcCv = await rasterizeSvg(icon.svg, SIZE);
+      conv = await window.strokeToFill(icon.svg);
+      const fillCv = await rasterizeSvg(conv.svg, SIZE);
+      d = diff(srcCv, fillCv, SIZE);
+
+      const pass = d.pct < 1.0;   // tight bar; we report actuals regardless
+      results.push({ name: icon.name, pct: d.pct, pctOfInk: d.pctOfInk, ink: d.ink, pass });
+
+      tr.innerHTML = `
+        <td><div class="name">${icon.name}</div><div class="note">${icon.note}</div></td>
+        <td><div class="cell"><div class="box">${icon.svg}</div></div></td>
+        <td><div class="cell"><div class="box">${conv.svg}</div></div></td>
+        <td class="srcc"></td>
+        <td class="fillc"></td>
+        <td>
+          <div>diff: <span class="verdict ${pass ? 'pass' : 'fail'} num">${d.pct}%</span></div>
+          <div class="label" style="margin-top:6px">of icon ink: <span class="num">${d.pctOfInk}%</span></div>
+          <div class="label">ink px: ${d.ink}</div>
+          <details><summary class="label">traced d</summary><pre>${conv.d}</pre></details>
+        </td>`;
+      tr.querySelector('.srcc').appendChild(shrink(srcCv));
+      tr.querySelector('.fillc').appendChild(shrink(fillCv));
+    } catch (e) {
+      results.push({ name: icon.name, error: String(e && e.message || e) });
+      tr.innerHTML = `<td class="name">${icon.name}</td><td colspan="5" style="color:var(--bad)">ERROR: ${String(e && e.stack || e)}</td>`;
+    }
+    rows.appendChild(tr);
+  }
+
+  const ok = results.filter(r => !r.error);
+  const maxPct = ok.length ? Math.max(...ok.map(r => r.pct)) : null;
+  const avgPct = ok.length ? +(ok.reduce((s, r) => s + r.pct, 0) / ok.length).toFixed(3) : null;
+  window.STROKE_RESULTS = { results, maxPct, avgPct, size: SIZE, errors: results.filter(r => r.error).length };
+  document.getElementById('status').textContent =
+    `· done — ${ok.length}/${results.length} ok, avg ${avgPct}% / max ${maxPct}% of pixels`;
+  document.title = 'DONE ' + JSON.stringify(window.STROKE_RESULTS.results.map(r => r.error ? [r.name, 'ERR'] : [r.name, r.pct]));
+  return window.STROKE_RESULTS;
+}
+
+window.addEventListener('load', () => { run().catch(e => {
+  document.getElementById('status').textContent = 'FATAL: ' + e;
+  document.title = 'FATAL ' + e;
+}); });
+</script>
+</body>
+</html>
