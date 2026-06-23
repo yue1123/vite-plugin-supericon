@@ -160,7 +160,7 @@ async function injectPreviewSprite(spritePath: string) {
     const tpl = document.createElement('template')
     tpl.innerHTML = txt
     const svg = tpl.content.firstElementChild as SVGElement | null
-    if (!svg) return
+    if (!svg || svg.tagName.toLowerCase() !== 'svg') return
     svg.id = '__supericon_preview_sprite'
     svg.setAttribute('aria-hidden', 'true')
     svg.style.position = 'absolute'

@@ -30,7 +30,7 @@ const SPRITE_INJECT_HELPER = `function __supericonInject(txt){
   var tpl = document.createElement('template');
   tpl.innerHTML = String(txt).trim();
   var svg = tpl.content.firstElementChild;
-  if (!svg) return;
+  if (!svg || svg.tagName.toLowerCase() !== 'svg') return;
   svg.id = '__supericon_sprite';
   svg.setAttribute('aria-hidden','true');
   svg.style.position='absolute'; svg.style.width='0'; svg.style.height='0'; svg.style.overflow='hidden';
