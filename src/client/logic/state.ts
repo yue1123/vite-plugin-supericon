@@ -148,11 +148,15 @@ function update(data: UpdatePayload) {
 
 // 取插件产出的 sprite.svg(经 Vite @fs 服务),内联注入预览 DOM,
 // 使 svg 图标的 <use href="#useId"> 在预览中可解析;每次 update 替换式重注。
+let spriteToken = 0
 async function injectPreviewSprite(spritePath: string) {
+  const token = ++spriteToken
   try {
     const url = `${baseUrl || ''}@fs/${spritePath}?v=${Date.now()}`
     const res = await fetch(url)
+    if (!res.ok) return
     const txt = (await res.text()).trim()
+    if (token !== spriteToken) return
     const tpl = document.createElement('template')
     tpl.innerHTML = txt
     const svg = tpl.content.firstElementChild as SVGElement | null
