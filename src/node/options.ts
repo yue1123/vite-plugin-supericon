@@ -1,80 +1,53 @@
-export interface GenerateFontOptions {
-  /**
-   * Svg icons source folder.
-   */
-  srcDir: string
-  /**
-   * Name of icons font
-   * @default 'iconfont
-   */
+export interface FontTrackOptions {
+  /** font 图标源目录 */
+  dir: string
+  /** 字体名 @default 'iconfont' */
   name?: string
-  /**
-   * Icon css class prefix
-   * @default icon
-   */
-  prefix?: string
-  /**
-   * The font descent
-   */
   descent?: number
-  /**
-   * The output font height (icons will be scaled so the highest has this height)
-   * @default 300
-   */
+  /** @default 300 */
   fontHeight?: number
-  /**
-   * Setup the SVG path rounding [10e12]
-   */
   round?: number
-  /**
-   * Use a CSS selector instead of 'tag + prefix'
-   */
   selector?: string
-  /**
-   * CSS base tag for icons
-   * @default i
-   */
+  /** @default 'i' */
   tag?: string
-  /**
-   * Use a custom Handlebars template file to generate css file
-   *
-   * The value is file path
-   */
   cssTemplate?: string
-  /**
-   * normalize icons by scaling them to the height of the highest icon
-   * @default true
-   */
+  /** @default true */
   normalize?: boolean
 }
 
-export interface Options extends GenerateFontOptions {
+export interface SvgTrackOptions {
+  /** svg(sprite)图标源目录 */
+  dir: string
   /**
-   * clear cache pre server start
-   *
-   * @default true
+   * sprite 注入方式
+   * - 'fetch':运行时 fetch 外联 sprite.svg 后注入
+   * - 'inline':sprite 内容内联进虚拟模块,导入时同步注入
+   * @default 'fetch'
    */
+  inject?: 'fetch' | 'inline'
+  /** sprite 文件名(不含扩展名)@default 'sprite' */
+  spriteName?: string
+}
+
+export interface Options {
+  /** font CSS class 与 sprite symbol id 的共享前缀 @default 'icon' */
+  prefix?: string
+  /** @default true */
   clearCache?: boolean
-  /**
-   * Watch srcDir files change
-   *
-   * @default true
-   */
+  /** @default true */
   watch?: boolean
-  /**
-   * Base URL for superIcon UI
-   *
-   * @default read from Vite's config
-   */
+  /** @default 读取 Vite config */
   base?: string
-  /**
-   * Automatically open super icon page in browser
-   * @default false
-   */
+  /** @default false */
   open?: boolean
-  /**
-   * Print URL output silently in the terminal
-   * @default false
-   */
+  /** @default false */
   silent?: boolean
+  /** font 轨 */
+  font?: FontTrackOptions
+  /** svg / sprite 轨 */
+  svg?: SvgTrackOptions
+  /** @deprecated 改用 `font.dir` */
+  srcDir?: string
+  /** @deprecated 改用 `font.name` */
+  name?: string
 }

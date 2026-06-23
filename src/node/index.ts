@@ -25,17 +25,34 @@ export function superIcon(options: Options): Plugin {
     silent = false,
     watch = true,
     clearCache = true,
-    name = DEFAULT_FONT_NAME,
-    srcDir: _srcDir,
-    ...fontOptions
+    prefix = 'icon',
+    font: _font,
+    svg,
+    srcDir: _legacySrcDir,
+    name: _legacyName
   } = options || {}
+
+  // 弃用 shim:顶层 srcDir/name → font 轨
+  let font = _font
+  if (!font && _legacySrcDir) {
+    console.warn(
+      c.yellow(`[${NAME}] 顶层 \`srcDir\`/\`name\` 已弃用,请改用 \`font: { dir, name }\``)
+    )
+    font = { dir: _legacySrcDir, name: _legacyName }
+  }
+  if (!font && !svg) {
+    throw new Error(`[${NAME}] 需至少配置 \`font\` 或 \`svg\` 之一`)
+  }
+
+  const fontName = font?.name ?? DEFAULT_FONT_NAME
+
   const root = process.cwd()
   let config: ResolvedConfig
   let isDev: boolean
-  let distDir = resolve(root, './node_modules/.supericon')
+  const distDir = resolve(root, './node_modules/.supericon')
 
-  let srcDir: string
-  let fontsGenerator: ReturnType<typeof createFontsGenerator>
+  let fontDir: string | undefined
+  let fontsGenerator: ReturnType<typeof createFontsGenerator> | undefined
 
   function configureServer(server: ViteDevServer) {
     const base = (options.base ?? server.config.base) || '/'
@@ -44,17 +61,17 @@ export function superIcon(options: Options): Plugin {
     }>(server.ws)
 
     const regenerateFont = debounce((force: boolean = true) => {
-      fontsGenerator.run(force).then((data) => {
+      ;(fontsGenerator?.run(force) ?? Promise.resolve([])).then((data) => {
         rpcServer.send('update', {
-          name,
+          name: fontName,
           iconList: data,
-          cssPath: `${distDir}/${name}.css`
+          cssPath: `${distDir}/${fontName}.css`
         })
       })
     }, 500)
 
-    if (watch) {
-      server.watcher.add(srcDir)
+    if (watch && fontDir) {
+      server.watcher.add(fontDir)
       server.watcher.on('add', () => regenerateFont(true))
       server.watcher.on('unlink', () => regenerateFont(true))
       server.watcher.on('change', () => regenerateFont(true))
@@ -65,7 +82,7 @@ export function superIcon(options: Options): Plugin {
     server.ws.on(`${NAME}:save`, (data: { absolutePath: string; svg: string }) => {
       try {
         const target = resolve(data.absolutePath)
-        if (!target.startsWith(srcDir)) {
+        if (!fontDir || !target.startsWith(fontDir)) {
           console.warn(c.yellow(`[${NAME}] refused to write outside srcDir: ${target}`))
           return
         }
@@ -119,33 +136,42 @@ export function superIcon(options: Options): Plugin {
   return {
     name: NAME,
     enforce: 'pre',
-    config(config, { command }) {
+    config(viteConfig, { command }) {
       isDev = command === 'serve'
 
-      let isResolved = false
-      if (config.resolve && config.resolve.alias) {
-        const { alias } = config.resolve
-        const aliasKeys = Object.keys(alias)
-        isResolved = aliasKeys.some((aliasKey) => {
-          if (_srcDir.includes(aliasKey)) {
-            // @ts-ignore
-            srcDir = _srcDir.replace(aliasKey, alias[aliasKey])
-            return true
+      const resolveDir = (dir: string): string => {
+        const alias = viteConfig.resolve?.alias
+        if (alias && !Array.isArray(alias)) {
+          for (const key of Object.keys(alias)) {
+            if (dir.includes(key)) {
+              // @ts-ignore alias 值类型可能为 string
+              return dir.replace(key, alias[key])
+            }
           }
-        })
+        }
+        return resolve(root, dir)
       }
-      if (!isResolved) {
-        srcDir = resolve(root, _srcDir)
-      }
+
       if (clearCache) {
         emptyDirSync(distDir)
       }
-      fontsGenerator = createFontsGenerator(root, {
-        srcDir: srcDir,
-        outputDir: distDir,
-        name,
-        ...fontOptions
-      })
+
+      if (font) {
+        fontDir = resolveDir(font.dir)
+        fontsGenerator = createFontsGenerator(root, {
+          srcDir: fontDir,
+          outputDir: distDir,
+          name: fontName,
+          prefix,
+          descent: font.descent,
+          fontHeight: font.fontHeight,
+          round: font.round,
+          normalize: font.normalize,
+          tag: font.tag,
+          selector: font.selector,
+          cssTemplate: font.cssTemplate
+        })
+      }
     },
     configResolved(_config) {
       config = _config
@@ -162,8 +188,8 @@ export function superIcon(options: Options): Plugin {
     },
     async load(id) {
       if (id === RESOLVED_VIRTUAL_MODULE_ID) {
-        await fontsGenerator.run()
-        return `@import './node_modules/.supericon/${name}.css'`
+        await fontsGenerator?.run()
+        return `@import './node_modules/.supericon/${fontName}.css'`
       }
     }
   }

@@ -7,3 +7,4 @@ export const DEFAULT_FONT_NAME = 'iconfont'
 export const SVG_FILL_COLOR_REG = /(?:fill|stroke)="(.+?)"/
 export const SVG_TAG_REG = /<\/*svg[\w\W]*?>/gm
 export const XML_TAG_REG = /<\?xml.*>/gm
+export const SVG_VIEWBOX_REG = /viewBox\s*=\s*"([^"]*)"/

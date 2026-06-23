@@ -1,12 +1,11 @@
-import { FontAssetType, OtherAssetType, generateFonts, RunnerOptions } from '@twbs/fantasticon'
+import { FontAssetType, OtherAssetType, generateFonts } from '@twbs/fantasticon'
 import { readFileSync, statSync, writeFileSync } from 'node:fs'
 import { relative, join, dirname } from 'node:path'
 import { ensureDirSync } from 'fs-extra'
 
 import { IconData } from '../types'
-import { SVG_TAG_REG, XML_TAG_REG } from './constants'
+import { SVG_TAG_REG, XML_TAG_REG, SVG_VIEWBOX_REG } from './constants'
 import { error } from './utils'
-import { Options } from './options'
 
 /**
  * 取文件相对 srcDir 的目录部分，按每层目录切成标签数组。
@@ -18,10 +17,21 @@ export function getTagsFromPath(srcDir: string, absolutePath: string): string[] 
   return dir.split(/[\\/]/).filter(Boolean)
 }
 
-export function createFontsGenerator(
-  root: string,
-  options: Options & Pick<RunnerOptions, 'outputDir'>
-) {
+export interface FontGeneratorRunnerOptions {
+  srcDir: string
+  outputDir: string
+  name: string
+  prefix: string
+  descent?: number
+  fontHeight?: number
+  round?: number
+  normalize?: boolean
+  tag?: string
+  selector?: string
+  cssTemplate?: string
+}
+
+export function createFontsGenerator(root: string, options: FontGeneratorRunnerOptions) {
   const {
     srcDir,
     outputDir,
@@ -90,9 +100,11 @@ export function createFontsGenerator(
             return {
               id,
               useId: `${prefix}-${id}`,
+              format: 'font' as const,
               absolutePath,
               svg: svgContent,
               svgBody: svgBody,
+              viewBox: svgContent.match(SVG_VIEWBOX_REG)?.[1]?.trim() || '0 0 24 24',
               relativePath: relative(root, absolutePath),
               lastModified: statSync(absolutePath).mtime,
               tags: getTagsFromPath(srcDir, absolutePath)
@@ -105,6 +117,7 @@ export function createFontsGenerator(
         })
         .catch((err) => {
           error(err.message || err)
+          resolve([])
         })
     })
     return promise
