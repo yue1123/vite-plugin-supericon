@@ -6,7 +6,8 @@ import {
   CLIENT_URL,
   VIRTUAL_MODULE_ID,
   RESOLVED_VIRTUAL_MODULE_ID,
-  DEFAULT_FONT_NAME
+  DEFAULT_FONT_NAME,
+  DEFAULT_SPRITE_NAME
 } from './constants'
 import { debounce, colorUrl, openBrowser } from './utils'
 import { Options } from './options'
@@ -15,8 +16,9 @@ import { DIR_CLIENT } from '../dir'
 import { resolve } from 'node:path'
 import { writeFileSync } from 'node:fs'
 import { createFontsGenerator } from './fontsGenerator'
+import { createSpriteGenerator } from './spriteGenerator'
 import { createRpcServer } from './rpc'
-import { UpdatePayload } from '../types'
+import { UpdatePayload, IconData } from '../types'
 import { emptyDirSync } from 'fs-extra'
 
 export function superIcon(options: Options): Plugin {
@@ -54,36 +56,46 @@ export function superIcon(options: Options): Plugin {
   let fontDir: string | undefined
   let fontsGenerator: ReturnType<typeof createFontsGenerator> | undefined
 
+  const spriteName = svg?.spriteName ?? DEFAULT_SPRITE_NAME
+  let svgDir: string | undefined
+  let spriteGenerator: ReturnType<typeof createSpriteGenerator> | undefined
+
   function configureServer(server: ViteDevServer) {
     const base = (options.base ?? server.config.base) || '/'
     const rpcServer = createRpcServer<{
       update: UpdatePayload
     }>(server.ws)
 
-    const regenerateFont = debounce((force: boolean = true) => {
-      ;(fontsGenerator?.run(force) ?? Promise.resolve([])).then((data) => {
+    const regenerate = debounce((force: boolean = true) => {
+      Promise.all([
+        fontsGenerator?.run(force) ?? Promise.resolve([] as IconData),
+        spriteGenerator?.run(force) ?? Promise.resolve([] as IconData)
+      ]).then(([fontList, svgList]) => {
         rpcServer.send('update', {
           name: fontName,
-          iconList: data,
-          cssPath: `${distDir}/${fontName}.css`
+          iconList: [...fontList, ...svgList],
+          cssPath: `${distDir}/${fontName}.css`,
+          spritePath: svgDir ? `${distDir}/${spriteName}.svg` : undefined
         })
       })
     }, 500)
 
-    if (watch && fontDir) {
-      server.watcher.add(fontDir)
-      server.watcher.on('add', () => regenerateFont(true))
-      server.watcher.on('unlink', () => regenerateFont(true))
-      server.watcher.on('change', () => regenerateFont(true))
+    if (watch) {
+      for (const d of [fontDir, svgDir]) if (d) server.watcher.add(d)
+      const onChange = () => regenerate(true)
+      server.watcher.on('add', onChange)
+      server.watcher.on('unlink', onChange)
+      server.watcher.on('change', onChange)
     }
 
     // Persist an icon SVG edited in the preview UI (e.g. one-click repair).
-    // Writing the file triggers the watcher → regenerateFont → update push.
+    // Writing the file triggers the watcher → regenerate → update push.
     server.ws.on(`${NAME}:save`, (data: { absolutePath: string; svg: string }) => {
       try {
         const target = resolve(data.absolutePath)
-        if (!fontDir || !target.startsWith(fontDir)) {
-          console.warn(c.yellow(`[${NAME}] refused to write outside srcDir: ${target}`))
+        const allowed = [fontDir, svgDir].filter(Boolean) as string[]
+        if (!allowed.some((d) => target.startsWith(d))) {
+          console.warn(c.yellow(`[${NAME}] refused to write outside src dirs: ${target}`))
           return
         }
         writeFileSync(target, data.svg, 'utf8')
@@ -100,7 +112,7 @@ export function superIcon(options: Options): Plugin {
       })
     )
     server.ws.on('connection', () => {
-      regenerateFont(false)
+      regenerate(false)
     })
 
     // print url in terminal
@@ -170,6 +182,16 @@ export function superIcon(options: Options): Plugin {
           tag: font.tag,
           selector: font.selector,
           cssTemplate: font.cssTemplate
+        })
+      }
+
+      if (svg) {
+        svgDir = resolveDir(svg.dir)
+        spriteGenerator = createSpriteGenerator(root, {
+          svgDir,
+          outputDir: distDir,
+          prefix,
+          spriteName
         })
       }
     },

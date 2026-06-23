@@ -22,7 +22,8 @@ export default defineConfig(() => {
       tailwindcss(),
       Inspect(),
       superIcon({
-        font: { dir: './demo/src/assets/icons' }
+        font: { dir: './demo/src/assets/icons' },
+        svg: { dir: './demo/src/assets/svgicons' }
       })
     ],
     server: {},
