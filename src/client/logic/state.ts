@@ -207,6 +207,10 @@ async function detectRenderIssues(items: IconData) {
 // place; catches recolor / reformat / precision dups, not just byte-identical.
 function check(iconList: _IconDataItem[]) {
   for (const item of iconList) item.sameWith = undefined
+  // NOTE(P3): dedup is name-based (keyed by `id`); when the same icon name exists
+  // in BOTH the font and svg tracks, byId collapses them and `sameWith` peer
+  // resolution may pick the wrong-format item. Cross-dir identifier uniqueness is
+  // deferred to P3 (see design spec §1); disjoint dirs / distinct names are unaffected.
   const byId = new Map(iconList.map((item) => [item.id, item]))
   for (const { ids } of findDuplicates(iconList)) {
     const peers = ids.map((id) => byId.get(id)).filter(Boolean) as _IconDataItem[]

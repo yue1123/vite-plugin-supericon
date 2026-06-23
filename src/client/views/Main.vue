@@ -118,7 +118,7 @@
         <div
           v-for="item in sortedSearchResults"
           :key="item.format + '/' + item.id"
-          :id="item.useId"
+          :id="item.format + '-' + item.useId"
           :title="`点击查看 ${item.useId} 详情`"
           class="icon-card"
           :class="{
@@ -278,13 +278,13 @@ function clearSearch() {
 // Jump to a duplicate peer's card (scroll + flash). Clears filters if the
 // target is currently filtered out of the list.
 async function jumpTo(peer: _IconDataItem) {
-  let el = document.getElementById(peer.useId)
+  let el = document.getElementById(peer.format + '-' + peer.useId)
   if (!el) {
     searchText.value = ''
     issuesOnly.value = false
     selectedTag.value = null
     await nextTick()
-    el = document.getElementById(peer.useId)
+    el = document.getElementById(peer.format + '-' + peer.useId)
   }
   if (!el) return
   el.scrollIntoView({ behavior: 'smooth', block: 'center' })

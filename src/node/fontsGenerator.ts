@@ -40,7 +40,7 @@ export function createFontsGenerator(root: string, options: FontGeneratorRunnerO
     fontHeight = 300,
     round,
     normalize = true,
-    prefix = 'icon',
+    prefix,
     tag = 'i',
     cssTemplate
   } = options

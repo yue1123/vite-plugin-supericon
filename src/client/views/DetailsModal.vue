@@ -557,7 +557,7 @@ function onSplitGrab(e: PointerEvent) {
 }
 
 const svgImgRef = ref<HTMLImageElement | null>(null)
-const fontGlyphRef = ref<HTMLElement | null>(null)
+const fontGlyphRef = ref<HTMLElement | SVGSVGElement | null>(null)
 const svgRenderSize = ref<[number, number] | null>(null)
 const fontRenderSize = ref<[number, number] | null>(null)
 
