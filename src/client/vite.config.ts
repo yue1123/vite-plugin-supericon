@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import { superIcon } from '../node'
 import { resolve } from 'node:path'
 import Inspect from 'vite-plugin-inspect'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig(() => {
   return {
@@ -13,15 +14,12 @@ export default defineConfig(() => {
         '@': __dirname
       }
     },
-    css: {
-      preprocessorOptions: {
-        scss: {
-          api: 'modern-compiler'
-        }
-      }
+    define:{
+      __VERSION__: JSON.stringify(process.env.npm_package_version)
     },
     plugins: [
       vue(),
+      tailwindcss(),
       Inspect(),
       superIcon({
         srcDir: './demo/src/assets/icons'

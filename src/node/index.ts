@@ -13,6 +13,7 @@ import { Options } from './options'
 import sirv from 'sirv'
 import { DIR_CLIENT } from '../dir'
 import { resolve } from 'node:path'
+import { writeFileSync } from 'node:fs'
 import { createFontsGenerator } from './fontsGenerator'
 import { createRpcServer } from './rpc'
 import { UpdatePayload } from '../types'
@@ -58,6 +59,21 @@ export function superIcon(options: Options): Plugin {
       server.watcher.on('unlink', () => regenerateFont(true))
       server.watcher.on('change', () => regenerateFont(true))
     }
+
+    // Persist an icon SVG edited in the preview UI (e.g. one-click repair).
+    // Writing the file triggers the watcher → regenerateFont → update push.
+    server.ws.on(`${NAME}:save`, (data: { absolutePath: string; svg: string }) => {
+      try {
+        const target = resolve(data.absolutePath)
+        if (!target.startsWith(srcDir)) {
+          console.warn(c.yellow(`[${NAME}] refused to write outside srcDir: ${target}`))
+          return
+        }
+        writeFileSync(target, data.svg, 'utf8')
+      } catch (err: any) {
+        console.error(c.red(`[${NAME}] save failed: ${err?.message || err}`))
+      }
+    })
 
     server.middlewares.use(
       `${base}${CLIENT_URL}`,

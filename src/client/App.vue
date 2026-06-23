@@ -1,5 +1,5 @@
 <template>
-  <NConfigProvider :theme-overrides="themeOverrides">
+  <NConfigProvider :theme="theme" :hljs="hljs" :theme-overrides="themeOverrides">
     <NMessageProvider>
       <Main />
     </NMessageProvider>
@@ -7,38 +7,31 @@
 </template>
 
 <script setup lang="ts">
-  import { GlobalThemeOverrides, NMessageProvider, NConfigProvider } from 'naive-ui'
-  import Main from './views/Main.vue'
-  import { computed } from 'vue'
-  import { isDark } from './logic'
+import { computed, watchEffect } from 'vue'
+import { NMessageProvider, NConfigProvider, darkTheme } from 'naive-ui'
+import Main from './views/Main.vue'
+import { isDark } from './logic'
+import { themeOverrides, currentCssVars } from './logic/theme'
+import hljs from 'highlight.js/lib/core'
+import xml from 'highlight.js/lib/languages/xml'
+import css from 'highlight.js/lib/languages/css'
 
-  const themeOverrides = computed<GlobalThemeOverrides>(() => {
-    return {
-      common: {
-        primaryColor: '#3c4859',
-        cubicBezierEaseOut: 'cubic-bezier(0.76, 0, 0.24, 1)'
-      },
-      Input: {
-        color: 'transparent',
-        colorFocus: 'transparent',
-        placeholderColor: 'var(--main-color)',
-        textColor: 'var(--base-text-color)',
-        suffixTextColor: 'var(--main-color)',
-        caretColor: 'var(--hover-color)',
-        border: '1px solid var(--main-bg)',
-        borderHover: '1px solid var(--hover-color)',
-        borderFocus: '1px solid var(--hover-color)'
-      },
-      Popover: {
-        textColor: '#3c4859'
-      },
-      Divider: {
-        color: 'var(--main-bg)'
-      },
-      Skeleton: {
-        color: isDark.value ? 'rgba(255, 255, 255, 0.12)' : '#eee',
-        colorEnd: isDark.value ? 'rgba(255, 255, 255, 0.18)' : '#ddd'
-      }
+hljs.registerLanguage('xml', xml)
+hljs.registerLanguage('css', css)
+
+const theme = computed(() => (isDark.value ? darkTheme : null))
+
+/**
+ * Apply CSS variables to :root so that ALL stylesheets — Tailwind utilities,
+ * scoped component styles, AND globally-defined rules like body { background-image: var(--backdrop-grain) } —
+ * pick them up. Reactive to both isDark and iconStyle through currentCssVars.
+ */
+if (typeof document !== 'undefined') {
+  watchEffect(() => {
+    const root = document.documentElement
+    for (const [name, value] of Object.entries(currentCssVars.value)) {
+      root.style.setProperty(name, value)
     }
   })
+}
 </script>

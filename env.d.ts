@@ -1,0 +1,1 @@
+declare __VERSION__: string

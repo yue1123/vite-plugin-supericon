@@ -1,0 +1,54 @@
+html,
+body {
+  height: 100%;
+  inset: 0;
+}
+
+html {
+  color: var(--text-primary);
+  background: var(--bg-base);
+  font-family: var(--font-body);
+  font-feature-settings: 'cv11', 'ss01', 'ss02';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+.gradient-bg {
+  background-image: var(--backdrop-grain);
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+}
+
+/* Reset minimal residuals that Naive's reset doesn't cover. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin: 0;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+/* Custom focus ring keyed to the mint accent — never the browser default. */
+:where(button, a, [role='button']):focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}

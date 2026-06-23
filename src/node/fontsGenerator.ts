@@ -1,12 +1,22 @@
 import { FontAssetType, OtherAssetType, generateFonts, RunnerOptions } from '@twbs/fantasticon'
 import { readFileSync, statSync, writeFileSync } from 'node:fs'
-import { relative, join } from 'node:path'
+import { relative, join, dirname } from 'node:path'
 import { ensureDirSync } from 'fs-extra'
 
 import { IconData } from '../types'
 import { SVG_TAG_REG, XML_TAG_REG } from './constants'
 import { error } from './utils'
 import { Options } from './options'
+
+/**
+ * 取文件相对 srcDir 的目录部分，按每层目录切成标签数组。
+ * 根级文件（直接位于 srcDir 下）返回 []；同时兼容 Windows 反斜杠路径。
+ */
+export function getTagsFromPath(srcDir: string, absolutePath: string): string[] {
+  const dir = dirname(relative(srcDir, absolutePath))
+  if (dir === '.' || dir === '' || dir.startsWith('..')) return []
+  return dir.split(/[\\/]/).filter(Boolean)
+}
 
 export function createFontsGenerator(
   root: string,
@@ -84,7 +94,8 @@ export function createFontsGenerator(
               svg: svgContent,
               svgBody: svgBody,
               relativePath: relative(root, absolutePath),
-              lastModified: statSync(absolutePath).mtime
+              lastModified: statSync(absolutePath).mtime,
+              tags: getTagsFromPath(srcDir, absolutePath)
             }
           })
           iconifyConfig.icons = record

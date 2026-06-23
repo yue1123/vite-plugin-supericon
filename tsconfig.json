@@ -1,8 +1,7 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "module": "ESNext",
-    "moduleResolution": "node",
+    "module": "esnext",
     "lib": ["esnext", "DOM"],
     "strict": true,
     "esModuleInterop": true,
@@ -11,10 +10,9 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "strictNullChecks": true,
-    "baseUrl": "./",
-    "rootDir": "./",
-    "noEmit": false
+    "noEmit": false,
+    "ignoreDeprecations": "6.0"
   },
-  "include": ["src/**/*.ts", "src/node/icon.js"],
+  "include": ["src/**/*.ts", "src/node/icon.js", "shim.d.ts"],
   "exclude": ["dist/**/*", "node_modules", "test/**/*", "demo/**/*"]
 }

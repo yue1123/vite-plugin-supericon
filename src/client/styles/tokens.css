@@ -1,0 +1,80 @@
+/**
+ * INVARIANTS layer — values that don't change across (style × mode).
+ *
+ * Semantic tokens (--bg-*, --accent*, --text-*, --shadow-*, --grad, --glass,
+ * --inset, --backdrop-grain, --warn*) live in JS — see `logic/tokens.ts` —
+ * and are injected onto :root by App.vue's watchEffect.  That keeps Naive's
+ * primaryColor / hover / pressed values and our `var(--…)` consumers in lock-step.
+ *
+ * This file only holds:
+ *   • Raw color palette (referenced from JS gradient strings via var(--mint-N))
+ *   • Geometry (radii)
+ *   • Typography family stacks
+ *   • Motion (easing curves & durations)
+ *   • Legacy aliases for un-migrated consumers
+ */
+
+:root {
+  /* ─── Raw palette (do not consume directly outside this file or the JS tokens) ─── */
+  --mint-50: #ecf7f0;
+  --mint-100: #d4eedd;
+  --mint-200: #b9e4c8;
+  --mint-300: #63e2b7;
+  --mint-400: #36d399;
+  --mint-500: #18a058;
+  --mint-600: #137b44;
+  --mint-700: #0e5b33;
+  --mint-800: #0a4426;
+  --mint-900: #062f1a;
+
+  --neutral-0: #ffffff;
+  --neutral-50: #f6f7f7;
+  --neutral-100: #eaeded;
+  --neutral-200: #e8ebeb;
+  --neutral-300: #d8dcdc;
+  --neutral-400: #9499a0;
+  --neutral-500: #7c8186;
+  --neutral-600: #5b6063;
+  --neutral-700: #2e3133;
+  --neutral-800: #1a1c1d;
+  --neutral-900: #0d0f10;
+
+  /* ─── Geometry ─── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  /* ─── Typography ─── */
+  --font-display: 'Comfortaa', ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
+  --font-body: 'Comfortaa', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Cascadia Code', monospace;
+  --font-sketch: 'Caveat', 'Comfortaa', cursive;
+  --font-sketch-note: 'Kalam', 'Comfortaa', cursive;
+
+  /* ─── Motion ─── */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 140ms;
+  --duration-base: 220ms;
+  --duration-slow: 360ms;
+
+  /* ─── LEGACY ALIASES — keep until consumers migrate to the semantic tokens. ─── */
+  --main-color: var(--text-secondary);
+  --hover-color: var(--text-primary);
+  --main-bg: var(--border-default);
+  --base-bg: var(--bg-surface);
+  --bg: var(--bg-base);
+  --popover-bg: var(--bg-elevated);
+  --warn-color: var(--warn);
+  --danger-color: var(--danger);
+  --base-text-color: var(--text-primary);
+  --modal-bg: var(--bg-surface);
+}
+
+/* html.dark just sets the color-scheme & gates Tailwind's `dark:` variant —
+   the actual semantic token values flow from App.vue's watchEffect. */
+html.dark {
+  color-scheme: dark;
+}

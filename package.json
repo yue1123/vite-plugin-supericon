@@ -1,11 +1,21 @@
 {
   "name": "vite-plugin-supericon",
   "version": "0.0.6",
+  "type": "module",
   "description": "vite plugin of auto generate iconfont from svg",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "module": "dist/index.js",
-  "type": "module",
+  "author": "dh<2572468699@qq.com>",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:yue1123/vite-plugin-supericon.git"
+  },
+  "homepage": "https://github.com/yue1123/vite-plugin-supericon",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14"
+  },
   "scripts": {
     "dev": "pnpm dev:node & pnpm dev:client",
     "build": "pnpm build:node & pnpm build:client",
@@ -33,40 +43,39 @@
     "svg icon",
     "super icon"
   ],
-  "author": "dh<2572468699@qq.com>",
-  "repository": {
-    "type": "git",
-    "url": "git@github.com:yue1123/vite-plugin-supericon.git"
-  },
-  "homepage": "https://github.com/yue1123/vite-plugin-supericon",
-  "license": "MIT",
   "devDependencies": {
-    "@iconify/vue": "^4.1.1",
-    "@rollup/plugin-typescript": "^11.1.3",
-    "@types/fs-extra": "^11.0.4",
-    "@types/node": "^18.15.0",
-    "@vitejs/plugin-vue": "^4.1.0",
-    "@vueuse/core": "^10.9.0",
-    "naive-ui": "^2.38.1",
-    "prettier": "^2.8.7",
-    "rimraf": "^4.4.0",
-    "sass": "^1.71.1",
-    "tsup": "^8.0.1",
-    "typescript": "^4.9.5",
-    "vite": "4.2.0",
-    "vite-hot-client": "^0.2.3",
-    "vite-plugin-inspect": "^0.8.3",
-    "vue": "^3.2.47",
-    "vue-tsc": "^1.2.0"
+    "@iconify/vue": "catalog:frontend",
+    "@rollup/plugin-typescript": "catalog:dev",
+    "@tailwindcss/vite": "catalog:frontend",
+    "@types/fs-extra": "catalog:dev",
+    "@types/node": "catalog:dev",
+    "@vitejs/plugin-vue": "catalog:frontend",
+    "@vueuse/core": "catalog:frontend",
+    "naive-ui": "catalog:frontend",
+    "prettier": "catalog:dev",
+    "rimraf": "catalog:dev",
+    "sass": "catalog:frontend",
+    "tailwindcss": "catalog:frontend",
+    "tsup": "catalog:dev",
+    "typescript": "catalog:dev",
+    "vite": "catalog:dev",
+    "vite-hot-client": "catalog:frontend",
+    "vite-plugin-inspect": "catalog:frontend",
+    "vue": "catalog:frontend",
+    "vue-tsc": "catalog:frontend"
+  },
+  "dependencies": {
+    "@twbs/fantasticon": "catalog:prod",
+    "fs-extra": "catalog:prod",
+    "highlight.js": "catalog:frontend",
+    "makerjs": "^0.19.2",
+    "open": "catalog:prod",
+    "paper": "catalog:frontend",
+    "picocolors": "catalog:prod",
+    "prismjs": "catalog:frontend",
+    "sirv": "catalog:prod"
   },
   "peerDependencies": {
     "vite": "*"
-  },
-  "dependencies": {
-    "fs-extra": "^11.2.0",
-    "@twbs/fantasticon": "^3.0.0",
-    "open": "^10.0.4",
-    "picocolors": "^1.0.0",
-    "sirv": "^2.0.4"
   }
 }
