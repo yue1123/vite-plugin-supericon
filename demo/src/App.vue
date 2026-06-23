@@ -15,6 +15,14 @@
   </div>
   <HelloWorld msg="Vite + Vue" />
 
+  <div style="display:flex; gap:16px; align-items:center; padding:16px">
+    <span>sprite:</span>
+    <svg width="48" height="48"><use href="#icon-multi-heart" /></svg>
+    <svg width="48" height="48"><use href="#icon-logo-demo" /></svg>
+    <span>font:</span>
+    <i class="my-icons" style="font-size:48px"></i>
+  </div>
+
   <hr />
   <h1>iconfont</h1>
   <i class="icon-desk-info"></i>

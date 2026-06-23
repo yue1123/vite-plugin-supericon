@@ -6,6 +6,8 @@ import {
   CLIENT_URL,
   VIRTUAL_MODULE_ID,
   RESOLVED_VIRTUAL_MODULE_ID,
+  VIRTUAL_FONT_CSS_ID,
+  RESOLVED_VIRTUAL_FONT_CSS_ID,
   DEFAULT_FONT_NAME,
   DEFAULT_SPRITE_NAME
 } from './constants'
@@ -14,12 +16,26 @@ import { Options } from './options'
 import sirv from 'sirv'
 import { DIR_CLIENT } from '../dir'
 import { resolve } from 'node:path'
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, readFileSync } from 'node:fs'
 import { createFontsGenerator } from './fontsGenerator'
 import { createSpriteGenerator } from './spriteGenerator'
 import { createRpcServer } from './rpc'
 import { UpdatePayload, IconData } from '../types'
 import { emptyDirSync } from 'fs-extra'
+
+// 注入到用户页面的幂等帮助函数(以源码字符串形式打进虚拟模块)。
+const SPRITE_INJECT_HELPER = `function __supericonInject(txt){
+  if (typeof document === 'undefined') return;
+  if (document.getElementById('__supericon_sprite')) return;
+  var tpl = document.createElement('template');
+  tpl.innerHTML = String(txt).trim();
+  var svg = tpl.content.firstElementChild;
+  if (!svg) return;
+  svg.id = '__supericon_sprite';
+  svg.setAttribute('aria-hidden','true');
+  svg.style.position='absolute'; svg.style.width='0'; svg.style.height='0'; svg.style.overflow='hidden';
+  document.body.prepend(svg);
+}`
 
 export function superIcon(options: Options): Plugin {
   const {
@@ -57,6 +73,7 @@ export function superIcon(options: Options): Plugin {
   let fontsGenerator: ReturnType<typeof createFontsGenerator> | undefined
 
   const spriteName = svg?.spriteName ?? DEFAULT_SPRITE_NAME
+  const injectMode = svg?.inject ?? 'fetch'
   let svgDir: string | undefined
   let spriteGenerator: ReturnType<typeof createSpriteGenerator> | undefined
 
@@ -204,14 +221,37 @@ export function superIcon(options: Options): Plugin {
       }
     },
     resolveId(id) {
-      if (id === VIRTUAL_MODULE_ID) {
-        return RESOLVED_VIRTUAL_MODULE_ID
-      }
+      if (id === VIRTUAL_MODULE_ID) return RESOLVED_VIRTUAL_MODULE_ID
+      if (id === VIRTUAL_FONT_CSS_ID) return RESOLVED_VIRTUAL_FONT_CSS_ID
     },
     async load(id) {
-      if (id === RESOLVED_VIRTUAL_MODULE_ID) {
+      // 内部嵌套:font CSS(保持原 @import 逻辑,走 Vite CSS 管线)
+      if (id === RESOLVED_VIRTUAL_FONT_CSS_ID) {
         await fontsGenerator?.run()
         return `@import './node_modules/.supericon/${fontName}.css'`
+      }
+      // 统一入口:JS 模块 = 引入 font CSS + 注入 sprite
+      if (id === RESOLVED_VIRTUAL_MODULE_ID) {
+        const lines: string[] = []
+        if (fontsGenerator) {
+          await fontsGenerator.run()
+          lines.push(`import ${JSON.stringify(VIRTUAL_FONT_CSS_ID)}`)
+        }
+        if (spriteGenerator) {
+          await spriteGenerator.run()
+          const spriteFile = `${distDir}/${spriteName}.svg`
+          if (injectMode === 'inline') {
+            const content = readFileSync(spriteFile, 'utf8')
+            lines.push(`${SPRITE_INJECT_HELPER}\n__supericonInject(${JSON.stringify(content)})`)
+          } else {
+            const spriteUrl = `/@fs/${spriteFile}`
+            lines.push(
+              `${SPRITE_INJECT_HELPER}\n` +
+                `fetch(${JSON.stringify(spriteUrl)}).then(function(r){return r.text()}).then(__supericonInject)`
+            )
+          }
+        }
+        return lines.join('\n')
       }
     }
   }
