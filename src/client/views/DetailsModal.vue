@@ -27,7 +27,7 @@
 
       <!-- Font-render issue banner -->
       <div
-        v-if="repairInfo?.needsRepair"
+        v-if="props.iconData.format !== 'svg' && repairInfo?.needsRepair"
         class="repair-banner"
         :class="{ 'repair-banner--blocked': !repairInfo.supported }"
       >
@@ -74,13 +74,29 @@
         <div class="stage__pane stage__pane--font" :style="paneStyle('font')">
           <span class="stage__pane-render-box" :class="{ hidden: !showRenderBoxAlignLine }">
             <i
+              v-if="props.iconData.format !== 'svg'"
               ref="fontGlyphRef"
               class="stage__media stage__media--font"
               :class="props.iconData.useId"
               :style="{ fontSize: detailSize + 'px', ...(transformStyle as any) }"
             />
+            <svg
+              v-else
+              ref="fontGlyphRef"
+              class="stage__media stage__media--font"
+              :width="detailSize"
+              :height="detailSize"
+              :viewBox="props.iconData.viewBox"
+              :style="(transformStyle as any)"
+              aria-hidden="true"
+            >
+              <use :href="`#${props.iconData.useId}`" />
+            </svg>
           </span>
-          <span class="stage__tag">Font · {{ fontRenderSize?.join(' × ') ?? '—' }}</span>
+          <span class="stage__tag">
+            {{ props.iconData.format === 'svg' ? 'Sprite' : 'Font' }} ·
+            {{ fontRenderSize?.join(' × ') ?? '—' }}
+          </span>
         </div>
 
         <!-- Split-mode handle -->
@@ -220,6 +236,12 @@
                 </dd>
               </div>
               <div class="info__row">
+                <dt>格式</dt>
+                <dd>
+                  <code>{{ props.iconData.format === 'svg' ? 'svg (sprite)' : 'font' }}</code>
+                </dd>
+              </div>
+              <div class="info__row">
                 <dt>viewBox</dt>
                 <dd>
                   <code>{{ meta.viewBox || '-' }}</code>
@@ -263,15 +285,8 @@
             <h3 class="section-title mt-2!">html</h3>
             <div class="code__body">
               <div class="code-content info overflow-auto">
-                <NCode
-                  class="lang-markup"
-                  language="xml"
-                  :code="getHtmlCode(props.iconData.id)"
-                ></NCode>
-                <ClipboardButton
-                  :text="getHtmlCode(props.iconData.id)"
-                  class="absolute right-2 top-4.5"
-                />
+                <NCode class="lang-markup" language="xml" :code="htmlSnippet"></NCode>
+                <ClipboardButton :text="htmlSnippet" class="absolute right-2 top-4.5" />
               </div>
             </div>
           </template>
@@ -333,6 +348,7 @@ import {
   getHtmlCode,
   getJsxCode,
   getCssCode,
+  getSvgUseCode,
   saveIconSvg
 } from '../logic'
 import { Icon } from '@iconify/vue'
@@ -388,13 +404,27 @@ const bgOptions = [
   { value: 'light' as const, label: '浅底' }
 ]
 
-const codeTabs = [
-  { value: 'html' as const, label: 'HTML' },
-  { value: 'react' as const, label: 'React' },
-  { value: 'css' as const, label: 'React' },
-  { value: 'svg' as const, label: 'SVG' }
-]
+const codeTabs = computed(() =>
+  props.iconData?.format === 'svg'
+    ? [
+        { value: 'html' as const, label: 'HTML' },
+        { value: 'svg' as const, label: 'SVG' }
+      ]
+    : [
+        { value: 'html' as const, label: 'HTML' },
+        { value: 'react' as const, label: 'React' },
+        { value: 'css' as const, label: 'CSS' },
+        { value: 'svg' as const, label: 'SVG' }
+      ]
+)
 const codeTab = ref<CodeLang>('html')
+// 切换图标时重置到 HTML,避免 svg 图标停留在已隐藏的 React/CSS tab
+watch(
+  () => props.iconData?.id,
+  () => {
+    codeTab.value = 'html'
+  }
+)
 
 /* ─── Font-render check + one-click repair ─── */
 const message = useMessage()
@@ -405,7 +435,7 @@ watch(
   () => props.iconData?.svg,
   async (svg) => {
     repairInfo.value = null
-    if (!svg) return
+    if (!svg || props.iconData?.format === 'svg') return
     const result = await detectIconIssue(svg)
     // guard against races when switching icons quickly
     if (props.iconData?.svg === svg) repairInfo.value = result
@@ -443,6 +473,7 @@ const meta = computed(() => {
 // Header badge, kept in sync with the font-render check (no "像素一致" while the
 // banner reports a problem).
 const statusBadge = computed<{ text: string; kind: 'ok' | 'warn' | 'checking' }>(() => {
+  if (props.iconData?.format === 'svg') return { text: 'SVG · 多色', kind: 'ok' }
   const info = repairInfo.value
   if (!info) return { text: '检测中…', kind: 'checking' }
   if (!info.needsRepair) return { text: '像素一致', kind: 'ok' }
@@ -450,6 +481,12 @@ const statusBadge = computed<{ text: string; kind: 'ok' | 'warn' | 'checking' }>
   return { text: '渲染异常', kind: 'warn' }
 })
 const svgCode = computed(() => (props.iconData ? formatXml(props.iconData.svg) : ''))
+const htmlSnippet = computed(() => {
+  if (!props.iconData) return ''
+  return props.iconData.format === 'svg'
+    ? getSvgUseCode(props.iconData.useId)
+    : getHtmlCode(props.iconData.id)
+})
 const lastModified = computed(() =>
   props.iconData ? new Date(props.iconData.lastModified) : new Date()
 )

@@ -16,3 +16,7 @@ export function getCssCode(id: string, unicode?: string) {
   const escaped = unicode ? `'\\${unicode.replace(/^\\?/, '')}'` : `''`
   return `.${id}::before {\n  font-family: 'supericon';\n  content: ${escaped};\n}`
 }
+
+export function getSvgUseCode(useId: string) {
+  return `<svg aria-hidden="true"><use href="#${useId}" /></svg>`
+}
