@@ -116,6 +116,8 @@ export function toggleSort() {
 function update(data: UpdatePayload) {
   list.value = data.iconList
 
+  if (data.spritePath) injectPreviewSprite(data.spritePath)
+
   const styleLink = document.getElementById('supericon') as HTMLLinkElement
   const href = `${baseUrl || ''}@fs/${data.cssPath}?v=${Date.now()}`
 
@@ -144,6 +146,31 @@ function update(data: UpdatePayload) {
   detectRenderIssues(list.value)
 }
 
+// 取插件产出的 sprite.svg(经 Vite @fs 服务),内联注入预览 DOM,
+// 使 svg 图标的 <use href="#useId"> 在预览中可解析;每次 update 替换式重注。
+async function injectPreviewSprite(spritePath: string) {
+  try {
+    const url = `${baseUrl || ''}@fs/${spritePath}?v=${Date.now()}`
+    const res = await fetch(url)
+    const txt = (await res.text()).trim()
+    const tpl = document.createElement('template')
+    tpl.innerHTML = txt
+    const svg = tpl.content.firstElementChild as SVGElement | null
+    if (!svg) return
+    svg.id = '__supericon_preview_sprite'
+    svg.setAttribute('aria-hidden', 'true')
+    svg.style.position = 'absolute'
+    svg.style.width = '0'
+    svg.style.height = '0'
+    svg.style.overflow = 'hidden'
+    const old = document.getElementById('__supericon_preview_sprite')
+    if (old) old.replaceWith(svg)
+    else document.body.prepend(svg)
+  } catch {
+    // sprite 不可用时静默,svg 图标显示空白,不阻断 font
+  }
+}
+
 // Flag icons that render wrong as a glyph (font winding / stroke). Uses paper,
 // so it runs async after the list is shown; chunked to keep the UI responsive.
 let scanToken = 0
@@ -152,6 +179,11 @@ async function detectRenderIssues(items: IconData) {
   for (let i = 0; i < items.length; i++) {
     if (token !== scanToken) return // a newer update superseded this scan
     const item = items[i]
+    if (item.format === 'svg') {
+      // svg 图标不入字体,无 winding/stroke 渲染问题
+      item.renderIssue = undefined
+      continue
+    }
     try {
       const info = await analyzeIcon(item.svg || item.svgBody)
       item.renderIssue = info.needsRepair

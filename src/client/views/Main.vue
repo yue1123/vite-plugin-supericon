@@ -117,7 +117,7 @@
       <div v-else class="icon-grid" :style="gridStyle">
         <div
           v-for="item in sortedSearchResults"
-          :key="item.id"
+          :key="item.format + '/' + item.id"
           :id="item.useId"
           :title="`点击查看 ${item.useId} 详情`"
           class="icon-card"
@@ -126,6 +126,9 @@
           }"
           @click="() => handleShowDetail(item)"
         >
+          <!-- Format badge (svg only) -->
+          <span v-if="item.format === 'svg'" class="badge-format">SVG</span>
+
           <!-- Flag badge -->
           <span v-if="item.errTips || item.renderIssue" class="badge-flag">
             {{ item.errTips ? '冲突' : item.renderIssue === 'stroke' ? '描边' : '渲染' }}
@@ -157,7 +160,16 @@
 
           <!-- Id -->
           <div class="icon-card__glyph" :style="{ fontSize: iconSize + 'px' }">
-            <i :class="item.useId"></i>
+            <i v-if="item.format !== 'svg'" :class="item.useId"></i>
+            <svg
+              v-else
+              :width="iconSize"
+              :height="iconSize"
+              :viewBox="item.viewBox"
+              aria-hidden="true"
+            >
+              <use :href="`#${item.useId}`" />
+            </svg>
           </div>
 
           <!-- Name -->
@@ -301,6 +313,21 @@ async function jumpTo(peer: _IconDataItem) {
   background: var(--warn-soft);
   color: var(--warn);
   border: 1px solid color-mix(in srgb, var(--warn) 32%, transparent);
+  cursor: default;
+}
+
+.badge-format {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent-active);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
   cursor: default;
 }
 
