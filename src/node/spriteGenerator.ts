@@ -43,7 +43,8 @@ export function createSpriteGenerator(root: string, options: SpriteGeneratorOpti
       try {
         const files = walkSvgFiles(svgDir)
         const symbols: string[] = []
-        const data: IconData = files.map((absolutePath) => {
+        const data: IconData = []
+        for (const absolutePath of files) {
           const svgContent = readFileSync(absolutePath).toString()
           const id = basename(absolutePath, '.svg')
           const useId = `${prefix}-${id}`
@@ -53,8 +54,9 @@ export function createSpriteGenerator(root: string, options: SpriteGeneratorOpti
             .replace(XML_TAG_REG, '')
             .replace(/\n/g, '')
             .trim()
-          symbols.push(`<symbol id="${useId}" viewBox="${viewBox}">${svgBody}</symbol>`)
-          return {
+          const symbolStr = `<symbol id="${useId}" viewBox="${viewBox}">${svgBody}</symbol>`
+          symbols.push(symbolStr)
+          data.push({
             id,
             useId,
             format: 'svg' as const,
@@ -65,8 +67,8 @@ export function createSpriteGenerator(root: string, options: SpriteGeneratorOpti
             relativePath: relative(root, absolutePath),
             lastModified: statSync(absolutePath).mtime,
             tags: getTagsFromPath(svgDir, absolutePath)
-          }
-        })
+          })
+        }
 
         const sprite =
           `<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" ` +
