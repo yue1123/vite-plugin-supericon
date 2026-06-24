@@ -208,7 +208,8 @@ export function superIcon(options: Options): Plugin {
           svgDir,
           outputDir: distDir,
           prefix,
-          spriteName
+          spriteName,
+          svgo: svg.svgo
         })
       }
     },
