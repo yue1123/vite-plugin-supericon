@@ -9,10 +9,14 @@ import {
   VIRTUAL_FONT_CSS_ID,
   RESOLVED_VIRTUAL_FONT_CSS_ID,
   DEFAULT_FONT_NAME,
-  DEFAULT_SPRITE_NAME
+  DEFAULT_SPRITE_NAME,
+  VIRTUAL_REGISTER_ID,
+  RESOLVED_VIRTUAL_REGISTER_ID,
+  DEFAULT_DTS
 } from './constants'
 import { debounce, colorUrl, openBrowser } from './utils'
 import { Options } from './options'
+import { buildIconMetas, generateBarrel, generateDts } from './importMode'
 import sirv from 'sirv'
 import { DIR_CLIENT } from '../dir'
 import { resolve } from 'node:path'
@@ -47,7 +51,9 @@ export function superIcon(options: Options): Plugin {
     font: _font,
     svg,
     srcDir: _legacySrcDir,
-    name: _legacyName
+    name: _legacyName,
+    mode = 'class',
+    dts = DEFAULT_DTS
   } = options || {}
 
   // 弃用 shim:顶层 srcDir/name → font 轨
@@ -77,6 +83,34 @@ export function superIcon(options: Options): Plugin {
   let svgDir: string | undefined
   let spriteGenerator: ReturnType<typeof createSpriteGenerator> | undefined
 
+  const isImport = mode === 'import'
+  let spriteRef: string | undefined // build 期 emitFile 资产引用 id
+
+  // 跑 generator → 合并列表 → 构建导出 metas;命名冲突抛错;按需写 .d.ts。
+  async function buildMetasOrThrow() {
+    const [fontList, svgList] = await Promise.all([
+      fontsGenerator?.run() ?? Promise.resolve([] as IconData),
+      spriteGenerator?.run() ?? Promise.resolve([] as IconData)
+    ])
+    const { metas, conflicts } = buildIconMetas([...fontList, ...svgList])
+    if (conflicts.length) {
+      const msg = conflicts
+        .map((conflict) =>
+          conflict.reason === 'duplicate'
+            ? `导出名冲突 "${conflict.exportName}":${conflict.paths.join(
+                ' ↔ '
+              )}(import 模式下图标名须跨目录全局唯一)`
+            : `非法图标名(无法生成标识符):${conflict.paths.join(', ')}`
+        )
+        .join('\n')
+      throw new Error(`[${NAME}] import 模式命名冲突:\n${msg}`)
+    }
+    if (dts !== false) {
+      writeFileSync(resolve(root, dts), generateDts(metas))
+    }
+    return metas
+  }
+
   function configureServer(server: ViteDevServer) {
     const base = (options.base ?? server.config.base) || '/'
     const rpcServer = createRpcServer<{
@@ -99,7 +133,16 @@ export function superIcon(options: Options): Plugin {
 
     if (watch) {
       for (const d of [fontDir, svgDir]) if (d) server.watcher.add(d)
-      const onChange = () => regenerate(true)
+      const onChange = () => {
+        regenerate(true)
+        if (isImport) {
+          // 重建 metas(刷新 .d.ts;命名冲突报到终端),失效虚拟模块 + 整页刷新
+          buildMetasOrThrow().catch((err) => console.error(c.red(err?.message || err)))
+          const mod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_MODULE_ID)
+          if (mod) server.moduleGraph.invalidateModule(mod)
+          server.ws.send({ type: 'full-reload' })
+        }
+      }
       server.watcher.on('add', onChange)
       server.watcher.on('unlink', onChange)
       server.watcher.on('change', onChange)
@@ -224,14 +267,54 @@ export function superIcon(options: Options): Plugin {
     resolveId(id) {
       if (id === VIRTUAL_MODULE_ID) return RESOLVED_VIRTUAL_MODULE_ID
       if (id === VIRTUAL_FONT_CSS_ID) return RESOLVED_VIRTUAL_FONT_CSS_ID
+      if (isImport && id === VIRTUAL_REGISTER_ID) return RESOLVED_VIRTUAL_REGISTER_ID
     },
     async load(id) {
-      // 内部嵌套:font CSS(保持原 @import 逻辑,走 Vite CSS 管线)
+      // 内部嵌套:font CSS(class/import 共用,走 Vite CSS 管线)
       if (id === RESOLVED_VIRTUAL_FONT_CSS_ID) {
         await fontsGenerator?.run()
         return `@import './node_modules/.supericon/${fontName}.css'`
       }
-      // 统一入口:JS 模块 = 引入 font CSS + 注入 sprite
+
+      // ── import 模式 ──
+      if (isImport) {
+        // 组件 barrel:可摇除
+        if (id === RESOLVED_VIRTUAL_MODULE_ID) {
+          const metas = await buildMetasOrThrow()
+          return { code: generateBarrel(metas), moduleSideEffects: false }
+        }
+        // register:副作用初始化(加载 font.css + svg sprite)
+        if (id === RESOLVED_VIRTUAL_REGISTER_ID) {
+          await Promise.all([fontsGenerator?.run(), spriteGenerator?.run()])
+          const lines: string[] = []
+          if (fontsGenerator) lines.push(`import ${JSON.stringify(VIRTUAL_FONT_CSS_ID)}`)
+          if (spriteGenerator) {
+            if (isDev) {
+              const spriteUrl = `/@fs/${distDir}/${spriteName}.svg`
+              lines.push(
+                `${SPRITE_INJECT_HELPER}\n` +
+                  `fetch(${JSON.stringify(spriteUrl)}).then(function(r){return r.text()}).then(__supericonInject)`
+              )
+            } else {
+              // build:emit 资产用显式 fileName(令 ROLLUP_FILE_URL 在渲染期即可解析),
+              // source 占位,裁剪后的内容在 generateBundle 覆写。
+              spriteRef = this.emitFile({
+                type: 'asset',
+                fileName: `${spriteName}.svg`,
+                source: ''
+              })
+              lines.push(
+                `${SPRITE_INJECT_HELPER}\n` +
+                  `fetch(import.meta.ROLLUP_FILE_URL_${spriteRef}).then(function(r){return r.text()}).then(__supericonInject)`
+              )
+            }
+          }
+          return lines.join('\n')
+        }
+        return
+      }
+
+      // ── class 模式(现状,保持不变):JS 模块 = 引入 font CSS + 注入 sprite ──
       if (id === RESOLVED_VIRTUAL_MODULE_ID) {
         const lines: string[] = []
         if (fontsGenerator) {
@@ -254,6 +337,25 @@ export function superIcon(options: Options): Plugin {
         }
         return lines.join('\n')
       }
+    },
+    generateBundle(_outputOptions, bundle) {
+      if (!isImport || !spriteGenerator || spriteRef == null) return
+      const symbols = spriteGenerator.getSymbols()
+      const used = new Set<string>()
+      for (const file of Object.values(bundle)) {
+        if (file.type !== 'chunk') continue
+        for (const useId of symbols.keys()) {
+          if (file.code.includes('#' + useId)) used.add(useId)
+        }
+      }
+      const body = [...used].map((useId) => symbols.get(useId) ?? '').join('')
+      const sprite =
+        `<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" ` +
+        `style="position:absolute;width:0;height:0;overflow:hidden">` +
+        body +
+        `</svg>`
+      const asset = bundle[`${spriteName}.svg`]
+      if (asset && asset.type === 'asset') asset.source = sprite
     }
   }
 }

@@ -109,9 +109,13 @@ function wrapAsSymbol(
 export function createSpriteGenerator(root: string, options: SpriteGeneratorOptions) {
   const { svgDir, outputDir, prefix, spriteName, svgo } = options
   const cache = new Map<string, { mtimeMs: number; symbol: string; item: IconDataItem }>()
+  let lastSymbols = new Map<string, string>()
   let promise: Promise<IconData> | undefined
 
-  function buildOne(absolutePath: string, stat: Stats): { symbol: string; item: IconDataItem } | null {
+  function buildOne(
+    absolutePath: string,
+    stat: Stats
+  ): { symbol: string; item: IconDataItem } | null {
     const rel = relative(root, absolutePath)
     const decoded = readFileSync(absolutePath).toString('utf8')
     const raw = decoded.charCodeAt(0) === 0xfeff ? decoded.slice(1) : decoded
@@ -166,6 +170,7 @@ export function createSpriteGenerator(root: string, options: SpriteGeneratorOpti
         const symbols: string[] = []
         const data: IconData = []
         const seen = new Set<string>()
+        const nextSymbols = new Map<string, string>()
 
         for (const absolutePath of files) {
           const stat = statSync(absolutePath)
@@ -183,7 +188,9 @@ export function createSpriteGenerator(root: string, options: SpriteGeneratorOpti
           seen.add(entry.item.useId)
           symbols.push(entry.symbol)
           data.push(entry.item)
+          nextSymbols.set(entry.item.useId, entry.symbol)
         }
+        lastSymbols = nextSymbols
 
         const sprite =
           `<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" ` +
@@ -200,5 +207,5 @@ export function createSpriteGenerator(root: string, options: SpriteGeneratorOpti
     return promise
   }
 
-  return { run }
+  return { run, getSymbols: () => lastSymbols }
 }

@@ -13,3 +13,6 @@ export const SVG_FILL_COLOR_REG = /(?:fill|stroke)="(.+?)"/
 export const SVG_TAG_REG = /<\/*svg[\w\W]*?>/gm
 export const XML_TAG_REG = /<\?xml.*>/gm
 export const SVG_VIEWBOX_REG = /viewBox\s*=\s*"([^"]*)"/
+export const VIRTUAL_REGISTER_ID = 'virtual:supericon/register'
+export const RESOLVED_VIRTUAL_REGISTER_ID = '\0virtual-supericon-register'
+export const DEFAULT_DTS = 'supericon.d.ts'

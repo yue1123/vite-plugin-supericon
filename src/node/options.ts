@@ -56,6 +56,18 @@ export interface Options {
   open?: boolean
   /** @default false */
   silent?: boolean
+  /**
+   * 消费模式(与交付格式 font/svg 正交,两模式互斥)。
+   * - 'class'(默认):`import 'virtual:supericon'` 副作用注入;用 `class="icon-x"` / `<use href="#icon-x">`。
+   * - 'import':`import { IconHome } from 'virtual:supericon'` 得组件;`import 'virtual:supericon/register'` 初始化一次。
+   * @default 'class'
+   */
+  mode?: 'class' | 'import'
+  /**
+   * import 模式生成 `.d.ts` 的路径(相对项目根),用户需在 tsconfig `include` 带上;`false` 关闭。
+   * @default 'supericon.d.ts'
+   */
+  dts?: string | false
   /** font 轨 */
   font?: FontTrackOptions
   /** svg / sprite 轨 */
