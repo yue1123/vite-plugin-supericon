@@ -32,6 +32,7 @@ catalogs:
     open: ^11.0.0
     picocolors: ^1.1.1
     sirv: ^3.0.2
+    svgo: ^3.3.3
 
 onlyBuiltDependencies:
   - '@parcel/watcher'

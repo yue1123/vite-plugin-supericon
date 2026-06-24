@@ -14,7 +14,7 @@
   "homepage": "https://github.com/yue1123/vite-plugin-supericon",
   "license": "MIT",
   "engines": {
-    "node": ">=14"
+    "node": ">=16"
   },
   "scripts": {
     "dev": "pnpm dev:node & pnpm dev:client",
@@ -73,7 +73,8 @@
     "paper": "catalog:frontend",
     "picocolors": "catalog:prod",
     "prismjs": "catalog:frontend",
-    "sirv": "catalog:prod"
+    "sirv": "catalog:prod",
+    "svgo": "catalog:prod"
   },
   "peerDependencies": {
     "vite": "*"
