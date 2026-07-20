@@ -95,7 +95,7 @@ function buildOverrides(t: ThemeTokens): GlobalThemeOverrides {
   }
 }
 
-const currentTokens = computed(() => isDark ? dark : light)
+const currentTokens = computed(() => isDark.value ? dark : light)
 export const currentCssVars = computed<Record<string, string>>(() => tokensToCssVars(currentTokens.value))
 export const themeOverrides = computed<GlobalThemeOverrides>(() =>
   buildOverrides(currentTokens.value)

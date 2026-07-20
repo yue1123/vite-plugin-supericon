@@ -1,20 +1,37 @@
 import type { Config as SvgoConfig } from 'svgo'
 
-export interface FontTrackOptions {
-  /** font 图标源目录 */
+export interface FontOptions {
+  /** Font icon source dir. */
   dir: string
-  /** 字体名 @default 'iconfont' */
+  /**
+   * Generated font name; used as the file basename and CSS `font-family`.
+   * @default 'iconfont'
+   */
   name?: string
-  descent?: number
-  /** @default 300 */
+  /**
+   * Height (in font units) icons are scaled to; higher = crisper.
+   * @default 300
+   */
   fontHeight?: number
+  /** Round SVG path coordinates to this precision (passed to svgicons2svgfont). */
   round?: number
-  selector?: string
-  /** @default 'i' */
-  tag?: string
-  cssTemplate?: string
-  /** @default true */
+  /** Distance below the baseline in font metrics; tweaks vertical alignment. */
+  descent?: number
+  /**
+   * Normalize every icon to a uniform height (`fontHeight`) regardless of source size.
+   * @default true
+   */
   normalize?: boolean
+  /**
+   * HTML tag used by the generated CSS base selector / HTML preview.
+   * @default 'i'
+   */
+  tag?: string
+  /**
+   * Base CSS selector the font is applied to; falls back to `tag` when unset.
+   * @default null
+   */
+  selector?: string
 }
 
 export interface SvgTrackOptions {
@@ -69,7 +86,7 @@ export interface Options {
    */
   dts?: string | false
   /** font 轨 */
-  font?: FontTrackOptions
+  font?: FontOptions
   /** svg / sprite 轨 */
   svg?: SvgTrackOptions
   /** @deprecated 改用 `font.dir` */

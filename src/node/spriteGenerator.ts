@@ -1,6 +1,6 @@
-import { readdirSync, readFileSync, writeFileSync, statSync, type Stats } from 'node:fs'
+import { ensureDirSync, type Stats } from 'fs-extra'
+import { readdirSync, readFileSync, writeFileSync, statSync } from 'node:fs'
 import { join, relative, basename } from 'node:path'
-import { ensureDirSync } from 'fs-extra'
 import { optimize, type Config as SvgoConfig } from 'svgo'
 
 import { IconData, IconDataItem } from '../types'
@@ -149,7 +149,6 @@ export function createSpriteGenerator(root: string, options: SpriteGeneratorOpti
       absolutePath,
       svg: raw,
       svgBody: wrapped.body,
-      viewBox: wrapped.viewBox,
       relativePath: rel,
       lastModified: stat.mtime,
       tags: getTagsFromPath(svgDir, absolutePath)

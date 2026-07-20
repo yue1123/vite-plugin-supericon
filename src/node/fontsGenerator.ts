@@ -1,9 +1,9 @@
-import { FontAssetType, OtherAssetType, generateFonts } from '@twbs/fantasticon'
-import { readFileSync, statSync, writeFileSync } from 'node:fs'
+import { FontAssetType, OtherAssetType, generateFonts } from 'fantasticon'
 import { relative, join, dirname } from 'node:path'
 import { ensureDirSync } from 'fs-extra'
+import { readFileSync, statSync, writeFileSync } from 'node:fs'
 
-import { IconData } from '../types'
+import { IconData, IconDataItem } from '../types'
 import { SVG_TAG_REG, XML_TAG_REG, SVG_VIEWBOX_REG } from './constants'
 import { error } from './utils'
 
@@ -69,10 +69,7 @@ export function createFontsGenerator(root: string, options: FontGeneratorRunnerO
           css: cssTemplate
         },
         fontTypes: [FontAssetType.EOT, FontAssetType.WOFF2, FontAssetType.WOFF],
-        assetTypes: [
-          OtherAssetType.CSS
-          // , OtherAssetType.TS
-        ]
+        assetTypes: [OtherAssetType.CSS]
       })
         .then((result) => {
           const assets = result.assetsIn
@@ -85,7 +82,7 @@ export function createFontsGenerator(root: string, options: FontGeneratorRunnerO
             height: 24
           }
 
-          const data = Object.values(assets).map(({ absolutePath, id }) => {
+          const data: IconData = Object.values(assets).map(({ absolutePath, id }) => {
             const svgContent = readFileSync(absolutePath).toString()
             const svgBody = svgContent
               .replace(SVG_TAG_REG, '')
@@ -96,22 +93,21 @@ export function createFontsGenerator(root: string, options: FontGeneratorRunnerO
             record[id] = {
               body: svgBody
             }
-
-            return {
+            const iconData: IconDataItem = {
               id,
               useId: `${prefix}-${id}`,
               format: 'font' as const,
               absolutePath,
               svg: svgContent,
               svgBody: svgBody,
-              viewBox: svgContent.match(SVG_VIEWBOX_REG)?.[1]?.trim() || '0 0 24 24',
               relativePath: relative(root, absolutePath),
               lastModified: statSync(absolutePath).mtime,
               tags: getTagsFromPath(srcDir, absolutePath)
             }
+            return iconData
           })
-          iconifyConfig.icons = record
 
+          iconifyConfig.icons = record
           writeFileSync(join(outputDir, 'iconify.json'), JSON.stringify(iconifyConfig, null, 2))
           resolve(data)
         })

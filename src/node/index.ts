@@ -6,8 +6,8 @@ import {
   CLIENT_URL,
   VIRTUAL_MODULE_ID,
   RESOLVED_VIRTUAL_MODULE_ID,
-  VIRTUAL_FONT_CSS_ID,
-  RESOLVED_VIRTUAL_FONT_CSS_ID,
+  // VIRTUAL_FONT_CSS_ID,
+  // RESOLVED_VIRTUAL_FONT_CSS_ID,
   DEFAULT_FONT_NAME,
   DEFAULT_SPRITE_NAME,
   VIRTUAL_REGISTER_ID,
@@ -26,6 +26,7 @@ import { createSpriteGenerator } from './spriteGenerator'
 import { createRpcServer } from './rpc'
 import { UpdatePayload, IconData } from '../types'
 import { emptyDirSync } from 'fs-extra'
+import { resolveAlias } from './alias'
 
 // 注入到用户页面的幂等帮助函数(以源码字符串形式打进虚拟模块)。
 const SPRITE_INJECT_HELPER = `function __supericonInject(txt){
@@ -41,6 +42,39 @@ const SPRITE_INJECT_HELPER = `function __supericonInject(txt){
   document.body.prepend(svg);
 }`
 
+// ── 虚拟模块的客户端代码生成 ──
+
+// 运行时 fetch sprite 文本并注入。urlExpr 是 URL 的 JS 表达式源码
+// (dev 用字符串字面量,build 用 import.meta.ROLLUP_FILE_URL_x)。
+function spriteFetchSnippet(urlExpr: string): string {
+  return `${SPRITE_INJECT_HELPER}\nfetch(${urlExpr}).then(function(r){return r.text()}).then(__supericonInject)`
+}
+
+// 把 sprite 内容内联进产物直接注入(class 模式 inject: 'inline')。
+function spriteInlineSnippet(content: string): string {
+  return `${SPRITE_INJECT_HELPER}\n__supericonInject(${JSON.stringify(content)})`
+}
+
+// class 模式:插入 <link> 加载 iconfont CSS。
+function fontLinkSnippet(fontName: string): string {
+  return `
+          const link = document.createElement('link')
+          link.id = 'supericon'
+          link.rel = 'stylesheet'
+          link.href = './node_modules/.supericon/${fontName}.css?v=${Date.now()}'
+          link.onload = () => {
+            try {
+              if (!link.sheet || link.sheet.cssRules.length === 0) {
+                console.error('[vite-plugin-supericon] iconfont css load error')
+              }
+            } catch (e) {
+             // 
+            }
+          }
+          document.head.append(link)
+          `
+}
+
 export function superIcon(options: Options): Plugin {
   const {
     open: _open = false,
@@ -48,24 +82,14 @@ export function superIcon(options: Options): Plugin {
     watch = true,
     clearCache = true,
     prefix = 'icon',
-    font: _font,
+    font,
     svg,
-    srcDir: _legacySrcDir,
-    name: _legacyName,
     mode = 'class',
     dts = DEFAULT_DTS
   } = options || {}
 
-  // 弃用 shim:顶层 srcDir/name → font 轨
-  let font = _font
-  if (!font && _legacySrcDir) {
-    console.warn(
-      c.yellow(`[${NAME}] 顶层 \`srcDir\`/\`name\` 已弃用,请改用 \`font: { dir, name }\``)
-    )
-    font = { dir: _legacySrcDir, name: _legacyName }
-  }
   if (!font && !svg) {
-    throw new Error(`[${NAME}] 需至少配置 \`font\` 或 \`svg\` 之一`)
+    throw new Error(`[${NAME}] At least one of \`font\` or \`svg\` must be configured`)
   }
 
   const fontName = font?.name ?? DEFAULT_FONT_NAME
@@ -75,7 +99,7 @@ export function superIcon(options: Options): Plugin {
   let isDev: boolean
   const distDir = resolve(root, './node_modules/.supericon')
 
-  let fontDir: string | undefined
+  let fontSourceDir: string | undefined
   let fontsGenerator: ReturnType<typeof createFontsGenerator> | undefined
 
   const spriteName = svg?.spriteName ?? DEFAULT_SPRITE_NAME
@@ -86,7 +110,6 @@ export function superIcon(options: Options): Plugin {
   const isImport = mode === 'import'
   let spriteRef: string | undefined // build 期 emitFile 资产引用 id
 
-  // 跑 generator → 合并列表 → 构建导出 metas;命名冲突抛错;按需写 .d.ts。
   async function buildMetasOrThrow() {
     const [fontList, svgList] = await Promise.all([
       fontsGenerator?.run() ?? Promise.resolve([] as IconData),
@@ -132,8 +155,11 @@ export function superIcon(options: Options): Plugin {
     }, 500)
 
     if (watch) {
-      for (const d of [fontDir, svgDir]) if (d) server.watcher.add(d)
-      const onChange = () => {
+      const dtsPath = dts === false ? undefined : resolve(root, dts)
+      for (const d of [fontSourceDir, svgDir]) if (d) server.watcher.add(d)
+      const onChange = (file: string) => {
+        // 忽略插件自己写出的 .d.ts:它在项目根(被 Vite 监听),否则写 dts→触发 change→再写 dts,无限刷新
+        if (dtsPath && resolve(file) === dtsPath) return
         regenerate(true)
         if (isImport) {
           // 重建 metas(刷新 .d.ts;命名冲突报到终端),失效虚拟模块 + 整页刷新
@@ -153,7 +179,7 @@ export function superIcon(options: Options): Plugin {
     server.ws.on(`${NAME}:save`, (data: { absolutePath: string; svg: string }) => {
       try {
         const target = resolve(data.absolutePath)
-        const allowed = [fontDir, svgDir].filter(Boolean) as string[]
+        const allowed = [fontSourceDir, svgDir].filter(Boolean) as string[]
         if (!allowed.some((d) => target.startsWith(d))) {
           console.warn(c.yellow(`[${NAME}] refused to write outside src dirs: ${target}`))
           return
@@ -211,27 +237,17 @@ export function superIcon(options: Options): Plugin {
     config(viteConfig, { command }) {
       isDev = command === 'serve'
 
-      const resolveDir = (dir: string): string => {
-        const alias = viteConfig.resolve?.alias
-        if (alias && !Array.isArray(alias)) {
-          for (const key of Object.keys(alias)) {
-            if (dir.includes(key)) {
-              // @ts-ignore alias 值类型可能为 string
-              return dir.replace(key, alias[key])
-            }
-          }
-        }
-        return resolve(root, dir)
-      }
-
       if (clearCache) {
         emptyDirSync(distDir)
       }
 
       if (font) {
-        fontDir = resolveDir(font.dir)
+        const alias = viteConfig.resolve?.alias
+        // alias resolve
+        // eg: dir: '@/xxxx'
+        fontSourceDir = alias ? resolveAlias(font.dir, alias, root) : resolve(root, font.dir)
         fontsGenerator = createFontsGenerator(root, {
-          srcDir: fontDir,
+          srcDir: fontSourceDir,
           outputDir: distDir,
           name: fontName,
           prefix,
@@ -240,13 +256,13 @@ export function superIcon(options: Options): Plugin {
           round: font.round,
           normalize: font.normalize,
           tag: font.tag,
-          selector: font.selector,
-          cssTemplate: font.cssTemplate
+          selector: font.selector
         })
       }
 
       if (svg) {
-        svgDir = resolveDir(svg.dir)
+        const alias = viteConfig.resolve?.alias
+        svgDir = alias ? resolveAlias(svg.dir, alias, root) : resolve(root, svg.dir)
         spriteGenerator = createSpriteGenerator(root, {
           svgDir,
           outputDir: distDir,
@@ -266,16 +282,9 @@ export function superIcon(options: Options): Plugin {
     },
     resolveId(id) {
       if (id === VIRTUAL_MODULE_ID) return RESOLVED_VIRTUAL_MODULE_ID
-      if (id === VIRTUAL_FONT_CSS_ID) return RESOLVED_VIRTUAL_FONT_CSS_ID
-      if (isImport && id === VIRTUAL_REGISTER_ID) return RESOLVED_VIRTUAL_REGISTER_ID
+      if (id === VIRTUAL_REGISTER_ID) return RESOLVED_VIRTUAL_REGISTER_ID
     },
     async load(id) {
-      // 内部嵌套:font CSS(class/import 共用,走 Vite CSS 管线)
-      if (id === RESOLVED_VIRTUAL_FONT_CSS_ID) {
-        await fontsGenerator?.run()
-        return `@import './node_modules/.supericon/${fontName}.css'`
-      }
-
       // ── import 模式 ──
       if (isImport) {
         // 组件 barrel:可摇除
@@ -287,14 +296,11 @@ export function superIcon(options: Options): Plugin {
         if (id === RESOLVED_VIRTUAL_REGISTER_ID) {
           await Promise.all([fontsGenerator?.run(), spriteGenerator?.run()])
           const lines: string[] = []
-          if (fontsGenerator) lines.push(`import ${JSON.stringify(VIRTUAL_FONT_CSS_ID)}`)
+          if (fontsGenerator) lines.push(fontLinkSnippet(fontName))
           if (spriteGenerator) {
             if (isDev) {
               const spriteUrl = `/@fs/${distDir}/${spriteName}.svg`
-              lines.push(
-                `${SPRITE_INJECT_HELPER}\n` +
-                  `fetch(${JSON.stringify(spriteUrl)}).then(function(r){return r.text()}).then(__supericonInject)`
-              )
+              lines.push(spriteFetchSnippet(JSON.stringify(spriteUrl)))
             } else {
               // build:emit 资产用显式 fileName(令 ROLLUP_FILE_URL 在渲染期即可解析),
               // source 占位,裁剪后的内容在 generateBundle 覆写。
@@ -303,10 +309,7 @@ export function superIcon(options: Options): Plugin {
                 fileName: `${spriteName}.svg`,
                 source: ''
               })
-              lines.push(
-                `${SPRITE_INJECT_HELPER}\n` +
-                  `fetch(import.meta.ROLLUP_FILE_URL_${spriteRef}).then(function(r){return r.text()}).then(__supericonInject)`
-              )
+              lines.push(spriteFetchSnippet(`import.meta.ROLLUP_FILE_URL_${spriteRef}`))
             }
           }
           return lines.join('\n')
@@ -315,24 +318,19 @@ export function superIcon(options: Options): Plugin {
       }
 
       // ── class 模式(现状,保持不变):JS 模块 = 引入 font CSS + 注入 sprite ──
-      if (id === RESOLVED_VIRTUAL_MODULE_ID) {
+      if (id === RESOLVED_VIRTUAL_REGISTER_ID) {
         const lines: string[] = []
         if (fontsGenerator) {
           await fontsGenerator.run()
-          lines.push(`import ${JSON.stringify(VIRTUAL_FONT_CSS_ID)}`)
+          lines.push(fontLinkSnippet(fontName))
         }
         if (spriteGenerator) {
           await spriteGenerator.run()
           const spriteFile = `${distDir}/${spriteName}.svg`
           if (injectMode === 'inline') {
-            const content = readFileSync(spriteFile, 'utf8')
-            lines.push(`${SPRITE_INJECT_HELPER}\n__supericonInject(${JSON.stringify(content)})`)
+            lines.push(spriteInlineSnippet(readFileSync(spriteFile, 'utf8')))
           } else {
-            const spriteUrl = `/@fs/${spriteFile}`
-            lines.push(
-              `${SPRITE_INJECT_HELPER}\n` +
-                `fetch(${JSON.stringify(spriteUrl)}).then(function(r){return r.text()}).then(__supericonInject)`
-            )
+            lines.push(spriteFetchSnippet(JSON.stringify(`/@fs/${spriteFile}`)))
           }
         }
         return lines.join('\n')

@@ -22,13 +22,13 @@
     "dev:client": "vite serve src/client",
     "build:client": "vite build src/client",
     "preview:client": "vite preview src/client",
-    "dev:node": "pnpm clean && tsup src/node/index.ts  --watch --dts --format esm",
+    "dev:node": "pnpm clean && tsup src/node/index.ts --watch --dts --format esm --tsconfig tsconfig.dev.json",
     "build:node": "pnpm clean && tsup src/node/index.ts --dts --env.NODE_ENV production --format esm && pnpm clean-up",
     "clean": "rimraf dist",
     "clean-up": "rimraf tsconfig.tsbuildinfo",
-    "demo:dev": "pnpm run -C demo dev",
-    "demo:build": "pnpm run -C demo build",
-    "demo:preview": "pnpm run -C demo preview"
+    "dev:demo": "pnpm run -C demo dev",
+    "build:demo": "pnpm run -C demo build",
+    "preview:demo": "pnpm run -C demo preview"
   },
   "files": [
     "dist"
@@ -65,7 +65,7 @@
     "vue-tsc": "catalog:frontend"
   },
   "dependencies": {
-    "@twbs/fantasticon": "catalog:prod",
+    "fantasticon": "catalog:prod",
     "fs-extra": "catalog:prod",
     "highlight.js": "catalog:frontend",
     "makerjs": "^0.19.2",

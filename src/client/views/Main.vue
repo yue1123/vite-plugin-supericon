@@ -8,201 +8,199 @@
     <template v-else>
       <Header />
 
-      <div class="flex items-center gap-2 mb-5">
-        <NPopover
-          v-if="availableTags.length"
-          :theme-overrides="{ padding: '0' }"
-          trigger="hover"
-          placement="bottom-start"
-          :show-arrow="false"
-        >
-          <template #trigger>
-            <button
-              class="inline-flex items-center gap-2 h-8 px-3 rounded-md text-xs font-medium cursor-pointer transition-colors duration-150 border"
-              style="
-                background: var(--accent);
-                color: var(--text-on-accent);
-                border-color: var(--accent);
-                box-shadow: 0 5px 14px -4px color-mix(in srgb, var(--accent) 55%, transparent);
-              "
-            >
-              <Icon icon="material-symbols:category-outline-rounded" class="text-sm" />
-              {{ selectedTag ?? '全部' }}
-              <span
-                class="text-[10.5px] font-bold rounded-sm px-1 py-px"
-                style="
-                  background: color-mix(in srgb, #000 16%, transparent);
-                  color: var(--text-on-accent);
-                "
-              >
-                {{ selectedTagCount }}
-              </span>
-              <Icon icon="material-symbols:keyboard-arrow-down" class="text-sm opacity-70" />
-            </button>
-          </template>
-          <div class="pop-card">
-            <div class="pop-title">分类</div>
-            <div class="tag-list">
-              <button
-                class="tag-row"
-                :class="[selectedTag === null && 'is-active']"
-                @click="selectedTag = null"
-              >
-                <span>全部</span>
-                <span class="tag-count">{{ totalCount }}</span>
-              </button>
-              <button
-                v-for="tag in availableTags"
-                :key="tag.name"
-                class="tag-row"
-                :class="[selectedTag === tag.name && 'is-active']"
-                @click="selectedTag = tag.name"
-              >
-                <span>{{ tag.name }}</span>
-                <span class="tag-count">{{ tag.count }}</span>
-              </button>
-            </div>
-          </div>
-        </NPopover>
-
-        <div class="flex-1" />
-
-        <button
-          v-if="issueCounts.total > 0"
-          class="inline-flex items-center gap-2 h-8 px-3 rounded-md text-xs font-medium cursor-pointer transition-colors duration-150 border"
-          :style="
-            issuesOnly
-              ? 'background:var(--warn-soft);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 32%,transparent);'
-              : 'background:var(--bg-surface);color:var(--text-secondary);border-color:var(--border-default);'
-          "
-          @click="issuesOnly = !issuesOnly"
-        >
-          <span class="inline-flex w-1.5 h-1.5 rounded-full bg-warn" />
-          {{ issueCounts.total }} 个问题
-          <span class="text-fg-subtle">·</span>
-          <span>{{ issueCounts.dup }} 重复</span>
-          <span class="text-fg-subtle">·</span>
-          <span>{{ issueCounts.conflict }} 冲突</span>
-          <span class="text-fg-subtle">·</span>
-          <span>{{ issueCounts.render }} 渲染</span>
-        </button>
-      </div>
-
       <!-- Loading -->
-      <div v-if="isLoading" class="icon-grid" :style="gridStyle">
-        <LoadingSkeleton v-for="i in 16" :key="i" />
-      </div>
+      <LoadingSkeleton v-if="isLoading" />
 
-      <!-- Empty -->
-      <NResult
-        v-else-if="!sortedSearchResults.length"
-        status="warning"
-        description="0 icons"
-        class="mt-40"
-      >
-        <template #icon>
-          <Icon icon="material-symbols:search-off" variant="outline" class="text-8xl opacity-45" />
-        </template>
-        <template #footer>
-          <button
-            class="h-9 px-4 rounded-md text-sm cursor-pointer transition-colors duration-150 border border-line bg-surface text-fg-muted hover:text-fg hover:border-line-strong"
-            @click="clearSearch"
-          >
-            清除筛选
-          </button>
-        </template>
-      </NResult>
-
-      <!-- Grid -->
-      <div v-else class="icon-grid" :style="gridStyle">
-        <div
-          v-for="item in sortedSearchResults"
-          :key="item.format + '/' + item.id"
-          :id="item.format + '-' + item.useId"
-          :title="`点击查看 ${item.useId} 详情`"
-          class="icon-card"
-          :class="{
-            'icon-card--flagged': item.errTips || item.sameWith || item.renderIssue
-          }"
-          @click="() => handleShowDetail(item)"
-        >
-          <!-- Format badge (svg only) -->
-          <span v-if="item.format === 'svg'" class="badge-format">SVG</span>
-
-          <!-- Flag badge -->
-          <span v-if="item.errTips || item.renderIssue" class="badge-flag">
-            {{ item.errTips ? '冲突' : item.renderIssue === 'stroke' ? '描边' : '渲染' }}
-          </span>
+      <template v-else>
+        <div class="flex items-center gap-2 mb-5">
           <NPopover
-            v-else-if="item.sameWith"
+            v-if="availableTags.length"
+            :theme-overrides="{ padding: '0' }"
             trigger="hover"
-            placement="top"
-            :keep-alive-on-hover="true"
-            :style="{ padding: '8px' }"
+            placement="bottom-start"
+            :show-arrow="false"
           >
             <template #trigger>
-              <span class="badge-flag" @click.stop>重复</span>
-            </template>
-            <div class="dup-pop" @click.stop>
-              <div class="dup-pop__title">与以下图标重复:</div>
-              <ul class="list-disc list-inside">
-                <li
-                  v-for="peer in item.sameWith"
-                  :key="peer.id"
-                  class="dup-pop__item"
-                  @click="jumpTo(peer)"
+              <button
+                class="inline-flex items-center gap-2 h-8 px-3 rounded-md text-xs font-medium cursor-pointer transition-colors duration-150 border"
+                style="
+                  background: var(--accent);
+                  color: var(--text-on-accent);
+                  border-color: var(--accent);
+                  box-shadow: 0 5px 14px -4px color-mix(in srgb, var(--accent) 55%, transparent);
+                "
+              >
+                <Icon icon="material-symbols:category-outline-rounded" class="text-sm" />
+                {{ selectedTag ?? '全部' }}
+                <span
+                  class="text-[10.5px] font-bold rounded-sm px-1 py-px"
+                  style="
+                    background: color-mix(in srgb, #000 16%, transparent);
+                    color: var(--text-on-accent);
+                  "
                 >
-                  {{ peer.id }}
-                </li>
-              </ul>
+                  {{ selectedTagCount }}
+                </span>
+                <Icon icon="material-symbols:keyboard-arrow-down" class="text-sm opacity-70" />
+              </button>
+            </template>
+            <div class="pop-card">
+              <div class="pop-title">分类</div>
+              <div class="tag-list">
+                <button
+                  class="tag-row"
+                  :class="[selectedTag === null && 'is-active']"
+                  @click="selectedTag = null"
+                >
+                  <span>全部</span>
+                  <span class="tag-count">{{ totalCount }}</span>
+                </button>
+                <button
+                  v-for="tag in availableTags"
+                  :key="tag.name"
+                  class="tag-row"
+                  :class="[selectedTag === tag.name && 'is-active']"
+                  @click="selectedTag = tag.name"
+                >
+                  <span>{{ tag.name }}</span>
+                  <span class="tag-count">{{ tag.count }}</span>
+                </button>
+              </div>
             </div>
           </NPopover>
 
-          <!-- Id -->
-          <div class="icon-card__glyph" :style="{ fontSize: iconSize + 'px' }">
-            <i v-if="item.format !== 'svg'" :class="item.useId"></i>
-            <svg
-              v-else
-              :width="iconSize"
-              :height="iconSize"
-              :viewBox="item.viewBox"
-              aria-hidden="true"
-            >
-              <use :href="`#${item.useId}`" />
-            </svg>
-          </div>
+          <div class="flex-1" />
 
-          <!-- Name -->
-          <div
-            v-if="showNames"
-            class="icon-card__name text-[12px] text-fg-muted text-center w-full overflow-hidden text-ellipsis whitespace-nowrap absolute left-1/2 -translate-x-1/2 bottom-5 px-1"
+          <button
+            v-if="issueCounts.total > 0"
+            class="inline-flex items-center gap-2 h-8 px-3 rounded-md text-xs font-medium cursor-pointer transition-colors duration-150 border"
+            :style="
+              issuesOnly
+                ? 'background:var(--warn-soft);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 32%,transparent);'
+                : 'background:var(--bg-surface);color:var(--text-secondary);border-color:var(--border-default);'
+            "
+            @click="issuesOnly = !issuesOnly"
           >
-            {{ item.id }}
-          </div>
+            <span class="inline-flex w-1.5 h-1.5 rounded-full bg-warn" />
+            {{ issueCounts.total }} 个问题
+            <span class="text-fg-subtle">·</span>
+            <span>{{ issueCounts.dup }} 重复</span>
+            <span class="text-fg-subtle">·</span>
+            <span>{{ issueCounts.conflict }} 冲突</span>
+            <span class="text-fg-subtle">·</span>
+            <span>{{ issueCounts.render }} 渲染</span>
+          </button>
+        </div>
+        <!-- Empty -->
+        <NResult
+          v-if="!sortedSearchResults.length"
+          status="warning"
+          description="0 icons"
+          class="mt-40"
+        >
+          <template #icon>
+            <Icon
+              icon="material-symbols:search-off"
+              variant="outline"
+              class="text-8xl opacity-45"
+            />
+          </template>
+          <template #footer>
+            <button
+              class="h-9 px-4 rounded-md text-sm cursor-pointer transition-colors duration-150 border border-line bg-surface text-fg-muted hover:text-fg hover:border-line-strong"
+              @click="clearSearch"
+              v-if="searchText"
+            >
+              清除筛选
+            </button>
+          </template>
+        </NResult>
 
-          <!-- Hover actions -->
-          <div class="icon-card__actions">
-            <ClipboardButton
-              class="icon-card__action-btn"
-              title="复制图标代码"
-              @click.stop
-              @success="() => handleCopyHtmlSuccess(item)"
-              :text="getHtmlCode(item.useId)"
+        <!-- Grid -->
+        <div v-else class="icon-grid" :style="gridStyle">
+          <div
+            v-for="item in sortedSearchResults"
+            :key="item.format + '/' + item.id"
+            :id="item.format + '-' + item.useId"
+            :title="`点击查看 ${item.useId} 详情`"
+            class="icon-card"
+            :class="{
+              'icon-card--flagged': item.errTips || item.sameWith || item.renderIssue
+            }"
+            @click="() => handleShowDetail(item)"
+          >
+            <!-- Format badge (svg only) -->
+            <span v-if="item.format === 'svg'" class="badge-format">SVG</span>
+
+            <!-- Flag badge -->
+            <span v-if="item.errTips || item.renderIssue" class="badge-flag">
+              {{ item.errTips ? '冲突' : item.renderIssue === 'stroke' ? '描边' : '渲染' }}
+            </span>
+            <NPopover
+              v-else-if="item.sameWith"
+              trigger="hover"
+              placement="top"
+              :keep-alive-on-hover="true"
+              :style="{ padding: '8px' }"
             >
-              <Icon icon="gg:code" class="text-base" />
-            </ClipboardButton>
-            <ClipboardButton
-              class="icon-card__action-btn"
-              title="复制 id"
-              @click.stop
-              @success="() => handleCopyIdSuccess(item)"
-              :text="item.useId"
+              <template #trigger>
+                <span class="badge-flag" @click.stop>重复</span>
+              </template>
+              <div class="dup-pop" @click.stop>
+                <div class="dup-pop__title">与以下图标重复:</div>
+                <ul class="list-disc list-inside">
+                  <li
+                    v-for="peer in item.sameWith"
+                    :key="peer.id"
+                    class="dup-pop__item"
+                    @click="jumpTo(peer)"
+                  >
+                    {{ peer.id }}
+                  </li>
+                </ul>
+              </div>
+            </NPopover>
+
+            <!-- Id -->
+            <div class="icon-card__glyph" :style="{ fontSize: iconSize + 'px' }">
+              <i v-if="item.format !== 'svg'" :class="item.useId"></i>
+              <svg v-else :width="iconSize" :height="iconSize" aria-hidden="true">
+                <use :href="`#${item.useId}`" />
+              </svg>
+            </div>
+
+            <!-- Name -->
+            <div
+              v-if="showNames"
+              class="icon-card__name text-[12px] text-fg-muted text-center w-full overflow-hidden text-ellipsis whitespace-nowrap absolute left-1/2 -translate-x-1/2 bottom-5 px-1"
             >
-              <Icon icon="gg:hashtag" class="text-base" />
-            </ClipboardButton>
+              {{ item.id }}
+            </div>
+
+            <!-- Hover actions -->
+            <div class="icon-card__actions">
+              <ClipboardButton
+                class="icon-card__action-btn"
+                title="复制图标代码"
+                @click.stop
+                @success="() => handleCopyHtmlSuccess(item)"
+                :text="getHtmlCode(item.useId)"
+              >
+                <Icon icon="gg:code" class="text-base" />
+              </ClipboardButton>
+              <ClipboardButton
+                class="icon-card__action-btn"
+                title="复制 id"
+                @click.stop
+                @success="() => handleCopyIdSuccess(item)"
+                :text="item.useId"
+              >
+                <Icon icon="gg:hashtag" class="text-base" />
+              </ClipboardButton>
+            </div>
           </div>
         </div>
-      </div>
+      </template>
     </template>
   </div>
 
@@ -295,12 +293,6 @@ async function jumpTo(peer: _IconDataItem) {
 </script>
 
 <style lang="scss" scoped>
-/* Density-driven grid; everything else is Tailwind on the article. */
-.icon-grid {
-  display: grid;
-  gap: 12px;
-}
-
 .badge-flag {
   position: absolute;
   top: 8px;
@@ -377,6 +369,7 @@ async function jumpTo(peer: _IconDataItem) {
   position: relative;
   aspect-ratio: 1;
   min-height: 92px;
+  display: flex;
   overflow: hidden;
   padding: 0 12px 12px;
   border-radius: var(--radius-lg);
@@ -406,11 +399,14 @@ async function jumpTo(peer: _IconDataItem) {
     align-items: center;
     justify-content: center;
     position: absolute;
-    top: 40%;
+    top: 48%;
     left: 50%;
     color: var(--text-secondary);
     min-height: 0;
     transform: translate(-50%, -50%);
+    & > * {
+      line-height: 0;
+    }
   }
 
   &__name {
@@ -418,11 +414,16 @@ async function jumpTo(peer: _IconDataItem) {
     transform: translateY(0);
   }
 
+  &:hover &__glyph {
+    transform: translate(-50%, -75%);
+  }
+
   &:hover &__name {
     opacity: 0;
     transform: translateY(-100%);
   }
 
+  &__glyph,
   &__name,
   &__actions {
     transition-property: opacity, transform;

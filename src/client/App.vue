@@ -15,7 +15,7 @@ import { themeOverrides, currentCssVars } from './logic/theme'
 import hljs from 'highlight.js/lib/core'
 import xml from 'highlight.js/lib/languages/xml'
 import css from 'highlight.js/lib/languages/css'
-
+console.log(1)
 hljs.registerLanguage('xml', xml)
 hljs.registerLanguage('css', css)
 

@@ -52,3 +52,8 @@ p {
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
+
+.icon-grid {
+  display: grid;
+  gap: 12px;
+}

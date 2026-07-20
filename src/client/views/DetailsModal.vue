@@ -64,7 +64,7 @@
             <img
               ref="svgImgRef"
               class="stage__media stage__media--svg"
-              :class="{ inverted: bg === 'dark' }"
+              :class="{ inverted: bg === 'dark', }"
               :src="`${baseUrl}@fs/${props.iconData.absolutePath}`"
               alt=""
               :style="transformStyle"
@@ -87,7 +87,7 @@
               :width="detailSize"
               :height="detailSize"
               :viewBox="props.iconData.viewBox"
-              :style="(transformStyle as any)"
+              :style="transformStyle as any"
               aria-hidden="true"
             >
               <use :href="`#${props.iconData.useId}`" />
@@ -376,6 +376,10 @@ type Cmp = 'side' | 'overlay' | 'split'
 type Bg = 'checker' | 'dark' | 'light'
 type CodeLang = 'html' | 'svg' | 'react' | 'css'
 
+const iconType = computed(() => {
+  if (!props.iconData) return null
+  return props.iconData?.format === 'svg' ? 'svg' : 'font'
+})
 const cmp = ref<Cmp>('side')
 const bg = ref<Bg>('checker')
 const DETAIL_SIZES = [48, 96, 160, 240] as const

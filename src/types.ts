@@ -6,8 +6,6 @@ export interface IconDataItem {
   format: 'font' | 'svg'
   svg: string
   svgBody: string
-  /** 真实 viewBox,如 '0 0 24 24' */
-  viewBox: string
   relativePath: string
   absolutePath: string
   lastModified: Date

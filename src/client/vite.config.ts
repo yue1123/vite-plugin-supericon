@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { superIcon } from '../node'
+import { superIcon } from '../node/index'
 import { resolve } from 'node:path'
 import Inspect from 'vite-plugin-inspect'
 import tailwindcss from '@tailwindcss/vite'
