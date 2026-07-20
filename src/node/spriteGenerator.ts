@@ -19,6 +19,20 @@ export interface SpriteGeneratorOptions {
 /** root <svg> 上需要丢弃的属性(viewBox 单独显式处理) */
 const DROP_ATTRS = new Set(['width', 'height', 'xmlns', 'xmlns:xlink', 'x', 'y', 'id', 'viewBox'])
 
+/**
+ * 把若干 <symbol> 包进隐藏的 sprite 根 <svg>。
+ * dev(spriteGenerator 写盘)与 build(index.ts generateBundle 覆写)共用同一份包装,
+ * 避免改容器样式时两端静默分歧。
+ */
+export function wrapSprite(body: string): string {
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" ` +
+    `style="position:absolute;width:0;height:0;overflow:hidden">` +
+    body +
+    `</svg>`
+  )
+}
+
 /** 手写递归(兼容 Node >=14,不用 readdirSync 的 recursive 选项)。 */
 function walkSvgFiles(dir: string): string[] {
   const out: string[] = []
@@ -191,12 +205,7 @@ export function createSpriteGenerator(root: string, options: SpriteGeneratorOpti
         }
         lastSymbols = nextSymbols
 
-        const sprite =
-          `<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" ` +
-          `style="position:absolute;width:0;height:0;overflow:hidden">` +
-          symbols.join('') +
-          `</svg>`
-        writeFileSync(join(outputDir, `${spriteName}.svg`), sprite)
+        writeFileSync(join(outputDir, `${spriteName}.svg`), wrapSprite(symbols.join('')))
         resolve(data)
       } catch (err: any) {
         error(err?.message || err)

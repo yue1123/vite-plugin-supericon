@@ -86,7 +86,6 @@
               class="stage__media stage__media--font"
               :width="detailSize"
               :height="detailSize"
-              :viewBox="props.iconData.viewBox"
               :style="transformStyle as any"
               aria-hidden="true"
             >

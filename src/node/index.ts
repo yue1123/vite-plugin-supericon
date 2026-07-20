@@ -1,4 +1,4 @@
-import { type ResolvedConfig, type Plugin, ViteDevServer } from 'vite'
+import { type ResolvedConfig, type Plugin, ViteDevServer, normalizePath, type Rollup } from 'vite'
 import c from 'picocolors'
 import {
   NAME,
@@ -19,10 +19,10 @@ import { Options } from './options'
 import { buildIconMetas, generateBarrel, generateDts } from './importMode'
 import sirv from 'sirv'
 import { DIR_CLIENT } from '../dir'
-import { resolve } from 'node:path'
+import { resolve, sep } from 'node:path'
 import { writeFileSync, readFileSync } from 'node:fs'
 import { createFontsGenerator } from './fontsGenerator'
-import { createSpriteGenerator } from './spriteGenerator'
+import { createSpriteGenerator, wrapSprite } from './spriteGenerator'
 import { createRpcServer } from './rpc'
 import { UpdatePayload, IconData } from '../types'
 import { emptyDirSync } from 'fs-extra'
@@ -55,24 +55,43 @@ function spriteInlineSnippet(content: string): string {
   return `${SPRITE_INJECT_HELPER}\n__supericonInject(${JSON.stringify(content)})`
 }
 
-// class 模式:插入 <link> 加载 iconfont CSS。
-function fontLinkSnippet(fontName: string): string {
+// 插入 <link> 加载 iconfont CSS。urlExpr 是 href 的 JS 表达式源码
+// (dev 用 /@fs 字符串字面量,build 用 import.meta.ROLLUP_FILE_URL_x)。
+function fontLinkSnippet(urlExpr: string): string {
   return `
           const link = document.createElement('link')
           link.id = 'supericon'
           link.rel = 'stylesheet'
-          link.href = './node_modules/.supericon/${fontName}.css?v=${Date.now()}'
+          link.href = ${urlExpr}
           link.onload = () => {
             try {
               if (!link.sheet || link.sheet.cssRules.length === 0) {
                 console.error('[vite-plugin-supericon] iconfont css load error')
               }
             } catch (e) {
-             // 
+             //
             }
           }
           document.head.append(link)
           `
+}
+
+// build:把 iconfont.css 及其字体文件作为 Vite 资产 emit(显式 fileName 令 CSS 内部
+// 相对 url('./x.woff2') 仍可解析),返回 css 资产的 ROLLUP_FILE_URL 引用 id。
+function emitFontAssets(ctx: Rollup.PluginContext, distDir: string, fontName: string): string {
+  for (const ext of ['eot', 'woff2', 'woff']) {
+    const file = resolve(distDir, `${fontName}.${ext}`)
+    try {
+      ctx.emitFile({ type: 'asset', fileName: `${fontName}.${ext}`, source: readFileSync(file) })
+    } catch {
+      // 字体类型缺失(理论上不会发生)时跳过,由 CSS 中对应 @font-face src 自然降级。
+    }
+  }
+  return ctx.emitFile({
+    type: 'asset',
+    fileName: `${fontName}.css`,
+    source: readFileSync(resolve(distDir, `${fontName}.css`), 'utf8')
+  })
 }
 
 export function superIcon(options: Options): Plugin {
@@ -82,11 +101,21 @@ export function superIcon(options: Options): Plugin {
     watch = true,
     clearCache = true,
     prefix = 'icon',
-    font,
     svg,
     mode = 'class',
     dts = DEFAULT_DTS
   } = options || {}
+
+  // 向后兼容:顶层 srcDir/name(deprecated)映射到 font 轨,启动时一次性告警。
+  let font = options?.font
+  if (!font && options?.srcDir) {
+    console.warn(
+      c.yellow(
+        `[${NAME}] \`srcDir\`/\`name\` 已废弃,请改用 \`font: { dir, name }\`;本次已自动兼容。`
+      )
+    )
+    font = { dir: options.srcDir, name: options.name }
+  }
 
   if (!font && !svg) {
     throw new Error(`[${NAME}] At least one of \`font\` or \`svg\` must be configured`)
@@ -98,6 +127,8 @@ export function superIcon(options: Options): Plugin {
   let config: ResolvedConfig
   let isDev: boolean
   const distDir = resolve(root, './node_modules/.supericon')
+  // dev 下 /@fs 需要正斜杠路径(Windows 上 resolve 产出反斜杠)。
+  const fsDistDir = normalizePath(distDir)
 
   let fontSourceDir: string | undefined
   let fontsGenerator: ReturnType<typeof createFontsGenerator> | undefined
@@ -140,34 +171,56 @@ export function superIcon(options: Options): Plugin {
       update: UpdatePayload
     }>(server.ws)
 
-    const regenerate = debounce((force: boolean = true) => {
+    const sendUpdate = (fontList: IconData, svgList: IconData) => {
+      rpcServer.send('update', {
+        name: fontName,
+        iconList: [...fontList, ...svgList],
+        cssPath: `${distDir}/${fontName}.css`,
+        spritePath: svgDir ? `${distDir}/${spriteName}.svg` : undefined
+      })
+    }
+
+    const runBoth = (force: boolean) =>
       Promise.all([
         fontsGenerator?.run(force) ?? Promise.resolve([] as IconData),
         spriteGenerator?.run(force) ?? Promise.resolve([] as IconData)
-      ]).then(([fontList, svgList]) => {
-        rpcServer.send('update', {
-          name: fontName,
-          iconList: [...fontList, ...svgList],
-          cssPath: `${distDir}/${fontName}.css`,
-          spritePath: svgDir ? `${distDir}/${spriteName}.svg` : undefined
-        })
-      })
+      ])
+
+    // 供预览 UI 连接时推送当前状态(非强制,命中缓存)。
+    const regenerate = debounce((force: boolean = true) => {
+      runBoth(force).then(([fontList, svgList]) => sendUpdate(fontList, svgList))
     }, 500)
 
     if (watch) {
       const dtsPath = dts === false ? undefined : resolve(root, dts)
-      for (const d of [fontSourceDir, svgDir]) if (d) server.watcher.add(d)
-      const onChange = (file: string) => {
-        // 忽略插件自己写出的 .d.ts:它在项目根(被 Vite 监听),否则写 dts→触发 change→再写 dts,无限刷新
-        if (dtsPath && resolve(file) === dtsPath) return
-        regenerate(true)
+      const srcDirs = [fontSourceDir, svgDir].filter(Boolean) as string[]
+      for (const d of srcDirs) server.watcher.add(d)
+
+      // 源图标变更:先强制刷新缓存,再(import 模式)用最新缓存重建 .d.ts/barrel、
+      // 失效虚拟模块并整页刷新。debounce 合并连续保存,避免每次写盘都全量重生成 + 整页刷新。
+      const onSourceChange = debounce(async () => {
+        const [fontList, svgList] = await runBoth(true)
+        sendUpdate(fontList, svgList)
         if (isImport) {
-          // 重建 metas(刷新 .d.ts;命名冲突报到终端),失效虚拟模块 + 整页刷新
-          buildMetasOrThrow().catch((err) => console.error(c.red(err?.message || err)))
+          try {
+            await buildMetasOrThrow()
+          } catch (err: any) {
+            console.error(c.red(err?.message || err))
+          }
           const mod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_MODULE_ID)
           if (mod) server.moduleGraph.invalidateModule(mod)
           server.ws.send({ type: 'full-reload' })
         }
+      }, 500)
+
+      const onChange = (file: string) => {
+        // 忽略插件自己写出的 .d.ts(在项目根、被 Vite 监听),否则写 dts→change→再写 dts 无限刷新。
+        if (dtsPath && resolve(file) === dtsPath) return
+        const f = resolve(file)
+        // 只关心源目录下的 .svg;.vue/.ts 等无关文件保存不再触发重生成与整页刷新。
+        if (!f.endsWith('.svg')) return
+        if (!srcDirs.some((d) => f === d || f.startsWith(d + sep))) return
+        onSourceChange()
       }
       server.watcher.on('add', onChange)
       server.watcher.on('unlink', onChange)
@@ -296,10 +349,17 @@ export function superIcon(options: Options): Plugin {
         if (id === RESOLVED_VIRTUAL_REGISTER_ID) {
           await Promise.all([fontsGenerator?.run(), spriteGenerator?.run()])
           const lines: string[] = []
-          if (fontsGenerator) lines.push(fontLinkSnippet(fontName))
+          if (fontsGenerator) {
+            if (isDev) {
+              lines.push(fontLinkSnippet(JSON.stringify(`/@fs/${fsDistDir}/${fontName}.css`)))
+            } else {
+              const cssRef = emitFontAssets(this, distDir, fontName)
+              lines.push(fontLinkSnippet(`import.meta.ROLLUP_FILE_URL_${cssRef}`))
+            }
+          }
           if (spriteGenerator) {
             if (isDev) {
-              const spriteUrl = `/@fs/${distDir}/${spriteName}.svg`
+              const spriteUrl = `/@fs/${fsDistDir}/${spriteName}.svg`
               lines.push(spriteFetchSnippet(JSON.stringify(spriteUrl)))
             } else {
               // build:emit 资产用显式 fileName(令 ROLLUP_FILE_URL 在渲染期即可解析),
@@ -317,43 +377,55 @@ export function superIcon(options: Options): Plugin {
         return
       }
 
-      // ── class 模式(现状,保持不变):JS 模块 = 引入 font CSS + 注入 sprite ──
+      // ── class 模式:JS 模块 = 引入 font CSS + 注入 sprite ──
       if (id === RESOLVED_VIRTUAL_REGISTER_ID) {
         const lines: string[] = []
         if (fontsGenerator) {
           await fontsGenerator.run()
-          lines.push(fontLinkSnippet(fontName))
+          if (isDev) {
+            lines.push(fontLinkSnippet(JSON.stringify(`/@fs/${fsDistDir}/${fontName}.css`)))
+          } else {
+            const cssRef = emitFontAssets(this, distDir, fontName)
+            lines.push(fontLinkSnippet(`import.meta.ROLLUP_FILE_URL_${cssRef}`))
+          }
         }
         if (spriteGenerator) {
           await spriteGenerator.run()
-          const spriteFile = `${distDir}/${spriteName}.svg`
           if (injectMode === 'inline') {
-            lines.push(spriteInlineSnippet(readFileSync(spriteFile, 'utf8')))
+            lines.push(spriteInlineSnippet(readFileSync(`${distDir}/${spriteName}.svg`, 'utf8')))
+          } else if (isDev) {
+            lines.push(spriteFetchSnippet(JSON.stringify(`/@fs/${fsDistDir}/${spriteName}.svg`)))
           } else {
-            lines.push(spriteFetchSnippet(JSON.stringify(`/@fs/${spriteFile}`)))
+            // build:emit 资产 + ROLLUP_FILE_URL,内容在 generateBundle 覆写(与 import 模式一致)。
+            spriteRef = this.emitFile({
+              type: 'asset',
+              fileName: `${spriteName}.svg`,
+              source: ''
+            })
+            lines.push(spriteFetchSnippet(`import.meta.ROLLUP_FILE_URL_${spriteRef}`))
           }
         }
         return lines.join('\n')
       }
     },
     generateBundle(_outputOptions, bundle) {
-      if (!isImport || !spriteGenerator || spriteRef == null) return
+      // spriteRef 仅在 build 的 fetch 分支(import 与 class 模式均然)被 emit;
+      // inline 模式不 emit、不进此处。按 spriteRef 是否存在判断,不再限定 import 模式。
+      if (!spriteGenerator || spriteRef == null) return
       const symbols = spriteGenerator.getSymbols()
-      const used = new Set<string>()
+      // 抽取每个 chunk 里所有 `#<id>` 引用收进 Set,再与 symbol id 求交集。
+      // 带边界(`[\w-]+` 贪婪匹配整段),避免子串误判(`#icon-arrow-left` 不会命中 `icon-arrow`)。
+      const referenced = new Set<string>()
       for (const file of Object.values(bundle)) {
         if (file.type !== 'chunk') continue
-        for (const useId of symbols.keys()) {
-          if (file.code.includes('#' + useId)) used.add(useId)
-        }
+        for (const m of file.code.matchAll(/#([\w-]+)/g)) referenced.add(m[1])
       }
-      const body = [...used].map((useId) => symbols.get(useId) ?? '').join('')
-      const sprite =
-        `<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" ` +
-        `style="position:absolute;width:0;height:0;overflow:hidden">` +
-        body +
-        `</svg>`
+      const body = [...symbols.keys()]
+        .filter((useId) => referenced.has(useId))
+        .map((useId) => symbols.get(useId) ?? '')
+        .join('')
       const asset = bundle[`${spriteName}.svg`]
-      if (asset && asset.type === 'asset') asset.source = sprite
+      if (asset && asset.type === 'asset') asset.source = wrapSprite(body)
     }
   }
 }

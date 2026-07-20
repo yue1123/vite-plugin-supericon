@@ -44,7 +44,7 @@ import { superIcon } from 'vite-plugin-supericon'
 export default {
   plugins: [
     superIcon({
-      srcDir: './src/assets/icons'
+      font: { dir: './src/assets/icons' }
     })
   ]
 }
@@ -76,13 +76,15 @@ Configure vscode settings for the workspace.
 
 | Property    | Type    | Partial | Default                 | Description                                                                                               |
 | ----------- | ------- | ------- | ----------------------- | --------------------------------------------------------------------------------------------------------- |
-| srcDir      | string  | no      |                         | Svg icons source folder.                                                                                  |
+| font.dir    | string  | no      |                         | Font icon source folder (SVGs converted to an icon font).                                                 |
+| svg.dir     | string  | no      |                         | Svg sprite source folder. At least one of `font` / `svg` is required.                                     |
+| srcDir      | string  | no      |                         | **Deprecated** — use `font.dir`. Still mapped to the font track with a warning.                           |
 | base        | string  | yes     | read from Vite's config | Base URL for superIcon UI                                                                                 |
 | clearCache  | boolean | yes     | `true`                    | clear cache pre server start                                                                              |
 | watch       | boolean | yes     | `true`                    | Watch srcDir files change                                                                                 |
 | open        | boolean | yes     | `false`                   | Automatically open super icon page in browser                                                             |
 | silent      | boolean | yes     | `false`                   | Print URL output silently in the terminal                                                                 |
-| name        | string  | yes     | `iconfont`                | Name of icons font                                                                                        |
+| name        | string  | yes     | `iconfont`                | **Deprecated** — use `font.name`. Name of icons font.                                                     |
 | prefix      | string  | yes     | `icon`                    | Icon css class prefix                                                                                     |
 | fontHeight  | number  | yes     | `300`                    | the output font height (icons will be scaled so the highest has this height)                              |
 | descent     | number  | yes     |                         | font descent                                                                                              |

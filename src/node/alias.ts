@@ -10,7 +10,9 @@ export function normalizeAlias(alias?: AliasOptions): Alias[] {
 function matches(find: string | RegExp, id: string): boolean {
   if (find instanceof RegExp) return find.test(id)
   if (id === find) return true
-  return id.startsWith(find) && id[find.length] === '/'
+  // 对齐 Vite 的 withTrailingSlash 语义:key 自带尾斜杠(如 '@/')时直接前缀匹配,
+  // 否则要求其后紧跟 '/'。旧实现对尾斜杠 key 恒不匹配 → 静默生成 0 图标。
+  return id.startsWith(find.endsWith('/') ? find : find + '/')
 }
 
 export function applyAlias(id: string, aliases: Alias[], root: string): string {
