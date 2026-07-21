@@ -3,7 +3,7 @@ import { Icon11111 } from 'virtual:supericon';
 import { IconBox } from 'virtual:supericon'
 import { IconGgTss } from 'virtual:supericon'
 import HelloWorld from './components/HelloWorld.vue'
-// import { IconCheck, IconBox, IconLogoDemo, IconGgAdd } from 'virtual:supericon'
+import { IconCheck, IconBox, IconLogoDemo, IconGgAdd } from 'virtual:supericon'
 
 // import {} from 'virtual:supericon'
 console.log('app中打印', import.meta.env.VITE_APP_DEBUG)
