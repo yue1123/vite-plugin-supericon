@@ -11,11 +11,15 @@ export interface IconDataItem {
   lastModified: Date
   /** 所属源目录下从外到内的每层目录名;根级图标为 [] */
   tags: string[]
+  /** import 模式下的组件导出名(如 IconHome);仅 import 模式填充 */
+  exportName?: string
 }
 export type IconData = IconDataItem[]
 
 export type UpdatePayload = {
   name: string
+  /** 消费模式,决定预览 UI 复制何种代码 */
+  mode: 'class' | 'import'
   cssPath: string
   /** sprite.svg 磁盘绝对路径;无 svg 轨时为 undefined */
   spritePath?: string

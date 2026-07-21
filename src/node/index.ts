@@ -16,7 +16,7 @@ import {
 } from './constants'
 import { debounce, colorUrl, openBrowser } from './utils'
 import { Options } from './options'
-import { buildIconMetas, generateBarrel, generateDts } from './importMode'
+import { buildIconMetas, generateBarrel, generateDts, toExportName } from './importMode'
 import sirv from 'sirv'
 import { DIR_CLIENT } from '../dir'
 import { resolve, sep } from 'node:path'
@@ -172,9 +172,15 @@ export function superIcon(options: Options): Plugin {
     }>(server.ws)
 
     const sendUpdate = (fontList: IconData, svgList: IconData) => {
+      const iconList = [...fontList, ...svgList]
       rpcServer.send('update', {
         name: fontName,
-        iconList: [...fontList, ...svgList],
+        mode,
+        // import 模式附上组件导出名,供预览 UI 复制 `<IconHome />`;
+        // 与 barrel/.d.ts 同用 toExportName,保持命名一致。
+        iconList: isImport
+          ? iconList.map((item) => ({ ...item, exportName: toExportName(item.id) }))
+          : iconList,
         cssPath: `${distDir}/${fontName}.css`,
         spritePath: svgDir ? `${distDir}/${spriteName}.svg` : undefined
       })

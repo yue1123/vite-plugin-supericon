@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
       vue(),
       inspect({}),
       superIcon({
-        // mode: 'import',
+        mode: 'import',
         font: { dir: '@/assets/icons', name: 'my-icons' },
         svg: { dir: './src/assets/svgicons' }
       })

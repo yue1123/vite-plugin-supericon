@@ -289,13 +289,22 @@
               </div>
             </div>
           </template>
+          <template v-if="codeTab === 'component'">
+            <h3 class="section-title mt-2!">Vue</h3>
+            <div class="code__body">
+              <div class="code-content info overflow-auto">
+                <NCode class="lang-markup" language="javascript" :code="componentSnippet" />
+                <ClipboardButton :text="componentSnippet" class="absolute right-2 top-4.5" />
+              </div>
+            </div>
+          </template>
           <template v-if="codeTab === 'react'">
             <h3 class="section-title mt-2!">React</h3>
             <div class="code__body">
               <div class="code-content info overflow-auto">
-                <NCode class="lang-markup" language="xml" :code="getJsxCode(props.iconData.id)" />
+                <NCode class="lang-markup" language="xml" :code="getJsxCode(props.iconData.useId)" />
                 <ClipboardButton
-                  :text="getJsxCode(props.iconData.id)"
+                  :text="getJsxCode(props.iconData.useId)"
                   class="absolute right-2 top-4.5"
                 />
               </div>
@@ -308,10 +317,10 @@
                 <NCode
                   class="lang-markup"
                   language="css"
-                  :code="getCssCode(props.iconData.id)"
+                  :code="getCssCode(props.iconData.useId)"
                 ></NCode>
                 <ClipboardButton
-                  :text="getCssCode(props.iconData.id)"
+                  :text="getCssCode(props.iconData.useId)"
                   class="absolute right-2 top-4.5"
                 />
               </div>
@@ -348,6 +357,8 @@ import {
   getJsxCode,
   getCssCode,
   getSvgUseCode,
+  getImportSnippet,
+  mode,
   saveIconSvg
 } from '../logic'
 import { Icon } from '@iconify/vue'
@@ -373,7 +384,7 @@ const show = computed({
 
 type Cmp = 'side' | 'overlay' | 'split'
 type Bg = 'checker' | 'dark' | 'light'
-type CodeLang = 'html' | 'svg' | 'react' | 'css'
+type CodeLang = 'html' | 'svg' | 'react' | 'css' | 'component'
 
 const iconType = computed(() => {
   if (!props.iconData) return null
@@ -407,25 +418,32 @@ const bgOptions = [
   { value: 'light' as const, label: '浅底' }
 ]
 
-const codeTabs = computed(() =>
-  props.iconData?.format === 'svg'
+const codeTabs = computed<{ value: CodeLang; label: string }[]>(() => {
+  // import 模式:只给组件用法与原始 SVG,class/font 的 React/CSS 概念在此不适用
+  if (mode.value === 'import') {
+    return [
+      { value: 'component', label: 'Vue' },
+      { value: 'svg', label: 'SVG' }
+    ]
+  }
+  return props.iconData?.format === 'svg'
     ? [
-        { value: 'html' as const, label: 'HTML' },
-        { value: 'svg' as const, label: 'SVG' }
+        { value: 'html', label: 'HTML' },
+        { value: 'svg', label: 'SVG' }
       ]
     : [
-        { value: 'html' as const, label: 'HTML' },
-        { value: 'react' as const, label: 'React' },
-        { value: 'css' as const, label: 'CSS' },
-        { value: 'svg' as const, label: 'SVG' }
+        { value: 'html', label: 'HTML' },
+        { value: 'react', label: 'React' },
+        { value: 'css', label: 'CSS' },
+        { value: 'svg', label: 'SVG' }
       ]
-)
+})
 const codeTab = ref<CodeLang>('html')
-// 切换图标时重置到 HTML,避免 svg 图标停留在已隐藏的 React/CSS tab
+// 切换图标时重置到首个可用 tab,避免停留在当前 mode/format 下已隐藏的 tab
 watch(
   () => props.iconData?.id,
   () => {
-    codeTab.value = 'html'
+    codeTab.value = codeTabs.value[0]?.value ?? 'html'
   }
 )
 
@@ -488,8 +506,11 @@ const htmlSnippet = computed(() => {
   if (!props.iconData) return ''
   return props.iconData.format === 'svg'
     ? getSvgUseCode(props.iconData.useId)
-    : getHtmlCode(props.iconData.id)
+    : getHtmlCode(props.iconData.useId)
 })
+const componentSnippet = computed(() =>
+  props.iconData?.exportName ? getImportSnippet(props.iconData.exportName) : ''
+)
 const lastModified = computed(() =>
   props.iconData ? new Date(props.iconData.lastModified) : new Date()
 )

@@ -184,7 +184,7 @@
                 title="复制图标代码"
                 @click.stop
                 @success="() => handleCopyHtmlSuccess(item)"
-                :text="getHtmlCode(item.useId)"
+                :text="getIconCode(item)"
               >
                 <Icon icon="gg:code" class="text-base" />
               </ClipboardButton>
@@ -215,7 +215,7 @@ import { Icon } from '@iconify/vue'
 import ClipboardButton from '../components/ClipboardButton.vue'
 import {
   isLoading,
-  getHtmlCode,
+  getIconCode,
   sortedSearchResults,
   searchText,
   list,

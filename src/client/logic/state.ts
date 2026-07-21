@@ -23,6 +23,8 @@ export type IconSizeKey = (typeof iconSizes)[number]
 export const copyTagTypes = ['Single', 'Paired'] as const
 export const list = ref<IconData>([])
 export const isLoading = ref(true)
+// 当前消费模式,由 node 侧随 update 推送;决定复制何种代码。
+export const mode = ref<'class' | 'import'>('class')
 
 export const sortMode = useStorage<'date' | 'default'>('vite-supericon:sort-mode', 'default')
 export const isShowPrefix = useStorage('vite-supericon:show-prefix', true)
@@ -115,6 +117,7 @@ export function toggleSort() {
 
 function update(data: UpdatePayload) {
   list.value = data.iconList
+  mode.value = data.mode ?? 'class'
 
   if (data.spritePath) injectPreviewSprite(data.spritePath)
 

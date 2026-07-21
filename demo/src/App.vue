@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { Icon11111 } from 'virtual:supericon';
+import { IconBox } from 'virtual:supericon'
+import { IconGgTss } from 'virtual:supericon'
 import HelloWorld from './components/HelloWorld.vue'
 // import { IconCheck, IconBox, IconLogoDemo, IconGgAdd } from 'virtual:supericon'
 
@@ -8,6 +11,9 @@ console.log('app中打印env', import.meta.env)
 </script>
 <template>
   <div>
+    <IconBox></IconBox>
+    <Icon11111></Icon11111>
+    <IconGgTss></IconGgTss>
     <a href="https://vitejs.dev" target="_blank">
       <img src="/vite.svg" class="logo" alt="Vite logo" />
     </a>
